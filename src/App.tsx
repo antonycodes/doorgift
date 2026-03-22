@@ -220,7 +220,7 @@ export default function App() {
       }}
     >
       {/* Header */}
-      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
+      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-gradient-to-b from-red-400 via-red-500 to-red-600 sticky top-0 z-10">
         <div className="logo-box"></div>
 
         <button
