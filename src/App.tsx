@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from 'react';
 import { Settings, Download, X } from 'lucide-react';
 
@@ -23,9 +18,9 @@ interface LogEntry {
 
 export default function App() {
   const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>({
-    tote: { name: "Túi tote Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', },
-    acc: { name: "Túi phụ kiện CellphoneS", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', },
-    water: { name: "Bình nước Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', },
+    tote: { name: "Túi tote Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+    acc: { name: "Túi phụ kiện CellphoneS", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
+    water: { name: "Bình nước Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
     none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 100, img: '', icon: '🍀' }
   });
 
@@ -40,36 +35,33 @@ export default function App() {
 
   // Admin form state
   const [adminForm, setAdminForm] = useState<Record<string, { count: number, img: string }>>({
-    tote: { count: 2, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774071594/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png' },
-    acc: { count: 2, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png' },
-    water: { count: 2, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070926/Gemini_Generated_Image_nb5prinb5prinb5p_kv2opi.png' }
+    tote: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png' },
+    acc: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png' },
+    water: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png' }
   });
 
   useEffect(() => {
     initGame();
   }, []);
 
+  const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
+    let items: GiftType[] = [];
+    (['tote', 'acc', 'water'] as GiftType[]).forEach(key => {
+      let limit = Math.min(currentInventory[key].count, 2);
+      for(let i=0; i<limit; i++) items.push(key);
+    });
+    while(items.length < 9) {
+      items.push('none');
+    }
+    return items.sort(() => Math.random() - 0.5);
+  };
+
   const initGame = () => {
     setGameActive(true);
     setFlippedIndex(null);
     setShowResult(false);
     setCurrentResultType(null);
-
-    let items: GiftType[] = [];
-    
-    // Logic: Pick up to 2 of each gift if in stock, then fill remaining with 'none'
-    (['tote', 'acc', 'water'] as GiftType[]).forEach(key => {
-      let limit = Math.min(inventory[key].count, 2);
-      for(let i=0; i<limit; i++) items.push(key);
-    });
-
-    while(items.length < 9) {
-      items.push('none');
-    }
-
-    // Shuffle items
-    items = items.sort(() => Math.random() - 0.5);
-    setGridItems(items);
+    setGridItems(generateGridItems(inventory));
   };
 
   const handleFlip = (index: number, type: GiftType) => {
@@ -78,7 +70,6 @@ export default function App() {
     setGameActive(false);
     setFlippedIndex(index);
 
-    // Log entry
     const logEntry: LogEntry = {
       timestamp: new Date().toLocaleString('vi-VN'),
       result: inventory[type].name,
@@ -86,7 +77,6 @@ export default function App() {
     };
     setFlipLogs(prev => [...prev, logEntry]);
 
-    // If it's a gift, decrement stock
     if (type !== 'none' && inventory[type].count > 0) {
       setInventory(prev => ({
         ...prev,
@@ -97,20 +87,25 @@ export default function App() {
       }));
     }
 
-    // Show result after animation
     setTimeout(() => {
       setCurrentResultType(type);
       setShowResult(true);
-    }, 800);
+    }, 600);
   };
 
-  const resetGame = () => {
-    initGame();
+  const resetGame = (overrideInventory?: Record<GiftType, InventoryItem>) => {
+    setShowResult(false);
+    setFlippedIndex(null); 
+    
+    setTimeout(() => {
+      setGridItems(generateGridItems(overrideInventory || inventory));
+      setCurrentResultType(null);
+      setGameActive(true);
+    }, 600);
   };
 
   const toggleAdmin = () => {
     if (!showAdmin) {
-      // Sync form with current inventory when opening
       setAdminForm({
         tote: { count: inventory.tote.count, img: inventory.tote.img },
         acc: { count: inventory.acc.count, img: inventory.acc.img },
@@ -131,14 +126,15 @@ export default function App() {
   };
 
   const saveAdminSettings = () => {
-    setInventory(prev => ({
-      ...prev,
-      tote: { ...prev.tote, count: adminForm.tote.count, img: adminForm.tote.img },
-      acc: { ...prev.acc, count: adminForm.acc.count, img: adminForm.acc.img },
-      water: { ...prev.water, count: adminForm.water.count, img: adminForm.water.img }
-    }));
+    const newInventory = {
+      ...inventory,
+      tote: { ...inventory.tote, count: adminForm.tote.count, img: adminForm.tote.img },
+      acc: { ...inventory.acc, count: adminForm.acc.count, img: adminForm.acc.img },
+      water: { ...inventory.water, count: adminForm.water.count, img: adminForm.water.img }
+    };
+    setInventory(newInventory);
     setShowAdmin(false);
-    resetGame();
+    resetGame(newInventory);
   };
 
   const exportLogs = () => {
@@ -165,27 +161,26 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-white">
-      <div 
-  className="flip-card-front flex items-center justify-center"
-  style={{
-    backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat"
-  }}
-></div>
+    <div 
+      className="min-h-screen flex flex-col font-sans"
+      style={{
+        backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed"
+      }}
+    >
       {/* Header */}
-<header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
-  <div className="logo-box"></div>
+      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
+        <div className="logo-box"></div>
 
-  <button
-    onClick={toggleAdmin}
-    className="text-gray-400 hover:text-red-600 transition p-2 cursor-pointer"
-  >
-    <Settings className="h-6 w-6" />
-  </button>
-</header>
+        <button
+          onClick={toggleAdmin}
+          className="text-gray-400 hover:text-red-600 transition p-2 cursor-pointer"
+        >
+          <Settings className="h-6 w-6" />
+        </button>
+      </header>
 
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
@@ -203,8 +198,15 @@ export default function App() {
             return (
               <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
                 <div className="flip-card-inner" onClick={() => handleFlip(index, type)}>
-                  <div className="flip-card-front">
-                    <span className="text-4xl font-bold opacity-20">?</span>
+                  <div 
+                    className="flip-card-front flex items-center justify-center"
+                    style={{
+                      backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774162513/Find_xa0rni.jpg')",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat"
+                    }}
+                  >
                   </div>
                   <div className="flip-card-back flex-col">
                     {item.img ? (
@@ -221,8 +223,6 @@ export default function App() {
             );
           })}
         </div>
-
-
       </main>
 
       {/* Admin Modal */}
@@ -295,7 +295,7 @@ export default function App() {
           <h2 className={`mb-6 ${currentResultType === 'none' ? "text-2xl font-bold text-gray-500" : "text-3xl font-bold text-red-600 scale-110 transition-all"}`}>
             {inventory[currentResultType].name}
           </h2>
-          <button onClick={resetGame} className="bg-red-600 text-white px-10 py-3 rounded-full font-bold shadow-xl cursor-pointer hover:bg-red-700 transition">
+          <button onClick={() => resetGame()} className="bg-red-600 text-white px-10 py-3 rounded-full font-bold shadow-xl cursor-pointer hover:bg-red-700 transition">
             TIẾP TỤC
           </button>
         </div>
