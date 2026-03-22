@@ -17,28 +17,57 @@ interface LogEntry {
 }
 
 export default function App() {
-  const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>({
-    tote: { name: "Túi tote Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
-    acc: { name: "Túi phụ kiện CellphoneS", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
-    water: { name: "Bình nước Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
-    none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 100, img: '', icon: '🍀' }
+  const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(() => {
+    const saved = localStorage.getItem('latO_inventory');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse inventory from localStorage", e);
+      }
+    }
+    return {
+      tote: { name: "Túi tote Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+      acc: { name: "Túi phụ kiện CellphoneS", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
+      water: { name: "Bình nước Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
+      none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 100, img: '', icon: '🍀' }
+    };
   });
 
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(true);
-  const [flipLogs, setFlipLogs] = useState<LogEntry[]>([]);
+  const [flipLogs, setFlipLogs] = useState<LogEntry[]>(() => {
+    const saved = localStorage.getItem('latO_history');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse history from localStorage", e);
+      }
+    }
+    return [];
+  });
   
   const [showAdmin, setShowAdmin] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [currentResultType, setCurrentResultType] = useState<GiftType | null>(null);
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   // Admin form state
-  const [adminForm, setAdminForm] = useState<Record<string, { count: number, img: string }>>({
+  const [adminForm, setAdminForm] = useState<Record<string, { count: number, img: string }>>(() => ({
     tote: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png' },
     acc: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png' },
     water: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png' }
-  });
+  }));
+
+  useEffect(() => {
+    localStorage.setItem('latO_inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  useEffect(() => {
+    localStorage.setItem('latO_history', JSON.stringify(flipLogs));
+  }, [flipLogs]);
 
   useEffect(() => {
     initGame();
@@ -144,10 +173,24 @@ export default function App() {
     }
 
     let csvContent = "\uFEFF"; // UTF-8 BOM for Excel
+    
+    // Phần tổng hợp
+    csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
+    csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
+    
+    (['tote', 'acc', 'water'] as const).forEach(key => {
+      const item = inventory[key];
+      const distributed = flipLogs.filter(log => log.result === item.name).length;
+      const remaining = item.count;
+      const initial = distributed + remaining;
+      csvContent += `"${item.name}",${initial},${distributed},${remaining}\n`;
+    });
+    
+    csvContent += "\nCHI TIẾT LƯỢT CHƠI,,,\n";
     csvContent += "STT,Thời gian,Kết quả,Loại\n";
     
     flipLogs.forEach((log, index) => {
-      csvContent += `${index + 1},${log.timestamp},${log.result},${log.type}\n`;
+      csvContent += `${index + 1},${log.timestamp},"${log.result}",${log.type}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -158,6 +201,12 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleResetData = () => {
+    localStorage.removeItem('latO_inventory');
+    localStorage.removeItem('latO_history');
+    window.location.reload();
   };
 
   return (
@@ -276,6 +325,27 @@ export default function App() {
               <button onClick={exportLogs} className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 cursor-pointer">
                 <Download className="h-5 w-5" />
                 XUẤT FILE NHẬT KÝ (LOG)
+              </button>
+              <button onClick={() => setShowConfirmReset(true)} className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4">
+                KHÔI PHỤC DỮ LIỆU GỐC
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Reset Modal */}
+      {showConfirmReset && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận khôi phục</h3>
+            <p className="text-gray-600 mb-8">Bạn có chắc chắn muốn xóa toàn bộ dữ liệu (số lượng quà, lịch sử lật) và khôi phục về mặc định? Hành động này không thể hoàn tác.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowConfirmReset(false)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition cursor-pointer">
+                HỦY
+              </button>
+              <button onClick={handleResetData} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition cursor-pointer">
+                KHÔI PHỤC
               </button>
             </div>
           </div>
