@@ -35,16 +35,16 @@
 }
 
 .flip-card-front {
-  background-color: #e11d48; /* Red-600 */
-  color: white;
-  border: 4px solid #fecdd3;
+  background-color:transparent; /* Red-600 */
+  color: rgb(255, 0, 0);
+  border: 4px solid #d6011a;
 }
 
 .flip-card-back {
   background-color: #fff;
   color: #1f2937;
   transform: rotateY(180deg);
-  border: 4px solid #e11d48;
+  border: 4px solid #d6011a;
 }
 
 .gift-image {
@@ -57,12 +57,11 @@
 .logo-box {
   width: 120px;
   height: 40px;
-  background: #e11d48;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 12px;
-  border-radius: 4px;
+
+  background-image: url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774159074/Logo_CPS_lfjpxv.webp');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+
+  background-color: transparent;
 }

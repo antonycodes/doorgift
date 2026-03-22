@@ -166,19 +166,32 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white">
+      <div 
+  className="flip-card-front flex items-center justify-center"
+  style={{
+    backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat"
+  }}
+></div>
       {/* Header */}
-      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-white sticky top-0 z-10">
-        <div className="logo-box">WORKSHOP</div>
-        <button onClick={toggleAdmin} className="text-gray-400 hover:text-red-600 transition p-2 cursor-pointer">
-          <Settings className="h-6 w-6" />
-        </button>
-      </header>
+<header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
+  <div className="logo-box"></div>
+
+  <button
+    onClick={toggleAdmin}
+    className="text-gray-400 hover:text-red-600 transition p-2 cursor-pointer"
+  >
+    <Settings className="h-6 w-6" />
+  </button>
+</header>
 
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
-          <p className="text-gray-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
+          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
+          <p className="text-red-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
         </div>
 
         {/* Game Grid */}
@@ -215,7 +228,7 @@ export default function App() {
       {/* Admin Modal */}
       {showAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-800 uppercase">Cài đặt hệ thống</h2>
               <button onClick={toggleAdmin} className="text-gray-400 hover:text-red-600 transition cursor-pointer">
