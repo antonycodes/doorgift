@@ -234,7 +234,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
+          <h1 className="text-7xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
           <p className="text-red-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
         </div>
 
