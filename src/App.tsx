@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Download, X } from 'lucide-react';
 
-type GiftType = 'tote' | 'acc' | 'water' | 'none';
+type GiftType = string;
 
 interface InventoryItem {
   name: string;
@@ -55,11 +55,8 @@ export default function App() {
   const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   // Admin form state
-  const [adminForm, setAdminForm] = useState<Record<string, { count: number, img: string }>>(() => ({
-    tote: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png' },
-    acc: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png' },
-    water: { count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png' }
-  }));
+  const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
+  const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
 
   useEffect(() => {
     localStorage.setItem('latO_inventory', JSON.stringify(inventory));
@@ -74,11 +71,12 @@ export default function App() {
   }, []);
 
   const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
-    let items: GiftType[] = [];
-    (['tote', 'acc', 'water'] as GiftType[]).forEach(key => {
-      let limit = Math.min(currentInventory[key].count, 2);
-      for(let i=0; i<limit; i++) items.push(key);
+    let pool: GiftType[] = [];
+    Object.keys(currentInventory).forEach(key => {
+      for(let i=0; i<currentInventory[key].count; i++) pool.push(key);
     });
+    pool = pool.sort(() => Math.random() - 0.5);
+    let items = pool.slice(0, 9);
     while(items.length < 9) {
       items.push('none');
     }
@@ -135,17 +133,14 @@ export default function App() {
 
   const toggleAdmin = () => {
     if (!showAdmin) {
-      setAdminForm({
-        tote: { count: inventory.tote.count, img: inventory.tote.img },
-        acc: { count: inventory.acc.count, img: inventory.acc.img },
-        water: { count: inventory.water.count, img: inventory.water.img }
-      });
+      setAdminInventory(JSON.parse(JSON.stringify(inventory)));
+      setNewItem({ id: '', name: '', count: 0, img: '' });
     }
     setShowAdmin(!showAdmin);
   };
 
-  const handleAdminChange = (key: string, field: 'count' | 'img', value: string | number) => {
-    setAdminForm(prev => ({
+  const handleAdminChange = (key: string, field: keyof InventoryItem, value: string | number) => {
+    setAdminInventory(prev => ({
       ...prev,
       [key]: {
         ...prev[key],
@@ -154,16 +149,43 @@ export default function App() {
     }));
   };
 
+  const handleAddNewItem = () => {
+    if (!newItem.id || !newItem.name) {
+      alert("Vui lòng nhập mã và tên quà!");
+      return;
+    }
+    if (adminInventory[newItem.id]) {
+      alert("Mã quà này đã tồn tại!");
+      return;
+    }
+    setAdminInventory(prev => ({
+      ...prev,
+      [newItem.id]: {
+        name: newItem.name,
+        count: newItem.count,
+        img: newItem.img,
+        icon: '🎁'
+      }
+    }));
+    setNewItem({ id: '', name: '', count: 0, img: '' });
+  };
+
+  const handleRemoveItem = (key: string) => {
+    if (key === 'none') {
+      alert("Không thể xóa ô Chúc may mắn lần sau!");
+      return;
+    }
+    setAdminInventory(prev => {
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+  };
+
   const saveAdminSettings = () => {
-    const newInventory = {
-      ...inventory,
-      tote: { ...inventory.tote, count: adminForm.tote.count, img: adminForm.tote.img },
-      acc: { ...inventory.acc, count: adminForm.acc.count, img: adminForm.acc.img },
-      water: { ...inventory.water, count: adminForm.water.count, img: adminForm.water.img }
-    };
-    setInventory(newInventory);
+    setInventory(adminInventory);
     setShowAdmin(false);
-    resetGame(newInventory);
+    resetGame(adminInventory);
   };
 
   const exportLogs = () => {
@@ -178,7 +200,7 @@ export default function App() {
     csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
     csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
     
-    (['tote', 'acc', 'water'] as const).forEach(key => {
+    Object.keys(inventory).forEach(key => {
       const item = inventory[key];
       const distributed = flipLogs.filter(log => log.result === item.name).length;
       const remaining = item.count;
@@ -220,7 +242,7 @@ export default function App() {
       }}
     >
       {/* Header */}
-      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-gradient-to-b from-red-400 via-red-500 to-red-600 sticky top-0 z-10">
+      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
         <div className="logo-box"></div>
 
         <button
@@ -234,7 +256,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <h1 className="text-7xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
+          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
           <p className="text-red-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
         </div>
 
@@ -286,36 +308,107 @@ export default function App() {
             </div>
             
             <div className="space-y-6">
-              {(['tote', 'acc', 'water'] as const).map(key => {
-                const item = inventory[key];
+              {Object.keys(adminInventory).map(key => {
+                const item = adminInventory[key];
+                const isNone = key === 'none';
                 return (
-                  <div key={key} className="p-4 border border-gray-100 rounded-xl bg-gray-50">
-                    <label className="block text-sm font-bold text-red-600 mb-3 uppercase tracking-wider">{item.name}</label>
+                  <div key={key} className="p-4 border border-gray-100 rounded-xl bg-gray-50 relative">
+                    {!isNone && (
+                      <button onClick={() => handleRemoveItem(key)} className="absolute top-2 right-2 text-gray-400 hover:text-red-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    <label className="block text-sm font-bold text-red-600 mb-3 uppercase tracking-wider">
+                      {isNone ? "CHÚC MAY MẮN LẦN SAU (TRƯỢT)" : item.name}
+                    </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {!isNone && (
+                        <div className="md:col-span-2">
+                          <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Tên quà</label>
+                          <input 
+                            type="text" 
+                            value={item.name} 
+                            onChange={(e) => handleAdminChange(key, 'name', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                          />
+                        </div>
+                      )}
                       <div>
                         <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng kho</label>
                         <input 
                           type="number" 
-                          value={adminForm[key].count} 
+                          value={item.count} 
                           onChange={(e) => handleAdminChange(key, 'count', parseInt(e.target.value) || 0)}
                           min="0" 
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
-                        <input 
-                          type="text" 
-                          value={adminForm[key].img} 
-                          onChange={(e) => handleAdminChange(key, 'img', e.target.value)}
-                          placeholder="https://res.cloudinary.com/..."
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
-                        />
-                      </div>
+                      {!isNone && (
+                        <div>
+                          <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
+                          <input 
+                            type="text" 
+                            value={item.img} 
+                            onChange={(e) => handleAdminChange(key, 'img', e.target.value)}
+                            placeholder="https://res.cloudinary.com/..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })}
+
+              {/* Add new item form */}
+              <div className="p-4 border-2 border-dashed border-gray-300 rounded-xl bg-white">
+                <label className="block text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider">THÊM QUÀ MỚI</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Mã quà (viết liền không dấu)</label>
+                    <input 
+                      type="text" 
+                      value={newItem.id} 
+                      onChange={(e) => setNewItem({...newItem, id: e.target.value})}
+                      placeholder="vd: voucher50k"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Tên quà hiển thị</label>
+                    <input 
+                      type="text" 
+                      value={newItem.name} 
+                      onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                      placeholder="vd: Voucher 50.000đ"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng</label>
+                    <input 
+                      type="number" 
+                      value={newItem.count} 
+                      onChange={(e) => setNewItem({...newItem, count: parseInt(e.target.value) || 0})}
+                      min="0" 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
+                    <input 
+                      type="text" 
+                      value={newItem.img} 
+                      onChange={(e) => setNewItem({...newItem, img: e.target.value})}
+                      placeholder="https://res.cloudinary.com/..."
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
+                    />
+                  </div>
+                </div>
+                <button onClick={handleAddNewItem} className="w-full bg-gray-800 text-white py-2 rounded-lg font-bold hover:bg-gray-900 transition cursor-pointer text-sm">
+                  + THÊM QUÀ NÀY
+                </button>
+              </div>
             </div>
 
             <div className="mt-8 space-y-3">
