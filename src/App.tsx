@@ -27,10 +27,11 @@ export default function App() {
       }
     }
     return {
-      tote: { name: "Túi tote Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
-      acc: { name: "Túi phụ kiện CellphoneS", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
-      water: { name: "Bình nước Samsung", count: 50, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
-      none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 100, img: '', icon: '🍀' }
+      tote: { name: "Túi tote Samsung", count: 0, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+      acc: { name: "Túi phụ kiện CellphoneS", count: 0, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
+      water: { name: "Bình nước Samsung", count: 0, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
+      shirt: { name: "Pin cài áo Samsung", count: 0, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
+      none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 0, img: '', icon: '🍀' }
     };
   });
 
@@ -48,7 +49,7 @@ export default function App() {
     }
     return [];
   });
-  
+
   const [showAdmin, setShowAdmin] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [currentResultType, setCurrentResultType] = useState<GiftType | null>(null);
@@ -73,11 +74,11 @@ export default function App() {
   const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
     let pool: GiftType[] = [];
     Object.keys(currentInventory).forEach(key => {
-      for(let i=0; i<currentInventory[key].count; i++) pool.push(key);
+      for (let i = 0; i < currentInventory[key].count; i++) pool.push(key);
     });
     pool = pool.sort(() => Math.random() - 0.5);
     let items = pool.slice(0, 9);
-    while(items.length < 9) {
+    while (items.length < 9) {
       items.push('none');
     }
     return items.sort(() => Math.random() - 0.5);
@@ -122,8 +123,8 @@ export default function App() {
 
   const resetGame = (overrideInventory?: Record<GiftType, InventoryItem>) => {
     setShowResult(false);
-    setFlippedIndex(null); 
-    
+    setFlippedIndex(null);
+
     setTimeout(() => {
       setGridItems(generateGridItems(overrideInventory || inventory));
       setCurrentResultType(null);
@@ -195,11 +196,11 @@ export default function App() {
     }
 
     let csvContent = "\uFEFF"; // UTF-8 BOM for Excel
-    
+
     // Phần tổng hợp
     csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
     csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
-    
+
     Object.keys(inventory).forEach(key => {
       const item = inventory[key];
       const distributed = flipLogs.filter(log => log.result === item.name).length;
@@ -207,10 +208,10 @@ export default function App() {
       const initial = distributed + remaining;
       csvContent += `"${item.name}",${initial},${distributed},${remaining}\n`;
     });
-    
+
     csvContent += "\nCHI TIẾT LƯỢT CHƠI,,,\n";
     csvContent += "STT,Thời gian,Kết quả,Loại\n";
-    
+
     flipLogs.forEach((log, index) => {
       csvContent += `${index + 1},${log.timestamp},"${log.result}",${log.type}\n`;
     });
@@ -232,7 +233,7 @@ export default function App() {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen flex flex-col font-sans"
       style={{
         backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
@@ -265,11 +266,11 @@ export default function App() {
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
             const item = inventory[type];
-            
+
             return (
               <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
                 <div className="flip-card-inner" onClick={() => handleFlip(index, type)}>
-                  <div 
+                  <div
                     className="flip-card-front flex items-center justify-center"
                     style={{
                       backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774162513/Find_xa0rni.jpg')",
@@ -306,7 +307,7 @@ export default function App() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <div className="space-y-6">
               {Object.keys(adminInventory).map(key => {
                 const item = adminInventory[key];
@@ -325,9 +326,9 @@ export default function App() {
                       {!isNone && (
                         <div className="md:col-span-2">
                           <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Tên quà</label>
-                          <input 
-                            type="text" 
-                            value={item.name} 
+                          <input
+                            type="text"
+                            value={item.name}
                             onChange={(e) => handleAdminChange(key, 'name', e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                           />
@@ -335,20 +336,20 @@ export default function App() {
                       )}
                       <div>
                         <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng kho</label>
-                        <input 
-                          type="number" 
-                          value={item.count} 
+                        <input
+                          type="number"
+                          value={item.count}
                           onChange={(e) => handleAdminChange(key, 'count', parseInt(e.target.value) || 0)}
-                          min="0" 
+                          min="0"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                         />
                       </div>
                       {!isNone && (
                         <div>
                           <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
-                          <input 
-                            type="text" 
-                            value={item.img} 
+                          <input
+                            type="text"
+                            value={item.img}
                             onChange={(e) => handleAdminChange(key, 'img', e.target.value)}
                             placeholder="https://res.cloudinary.com/..."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
@@ -366,40 +367,40 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Mã quà (viết liền không dấu)</label>
-                    <input 
-                      type="text" 
-                      value={newItem.id} 
-                      onChange={(e) => setNewItem({...newItem, id: e.target.value})}
+                    <input
+                      type="text"
+                      value={newItem.id}
+                      onChange={(e) => setNewItem({ ...newItem, id: e.target.value })}
                       placeholder="vd: voucher50k"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Tên quà hiển thị</label>
-                    <input 
-                      type="text" 
-                      value={newItem.name} 
-                      onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    <input
+                      type="text"
+                      value={newItem.name}
+                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                       placeholder="vd: Voucher 50.000đ"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng</label>
-                    <input 
-                      type="number" 
-                      value={newItem.count} 
-                      onChange={(e) => setNewItem({...newItem, count: parseInt(e.target.value) || 0})}
-                      min="0" 
+                    <input
+                      type="number"
+                      value={newItem.count}
+                      onChange={(e) => setNewItem({ ...newItem, count: parseInt(e.target.value) || 0 })}
+                      min="0"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
-                    <input 
-                      type="text" 
-                      value={newItem.img} 
-                      onChange={(e) => setNewItem({...newItem, img: e.target.value})}
+                    <input
+                      type="text"
+                      value={newItem.img}
+                      onChange={(e) => setNewItem({ ...newItem, img: e.target.value })}
                       placeholder="https://res.cloudinary.com/..."
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
                     />
