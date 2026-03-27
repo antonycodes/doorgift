@@ -345,7 +345,7 @@ export default function App() {
                         />
                       </div>
                       {!isNone && (
-                        <div>
+                        <div className="hidden">
                           <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
                           <input
                             type="text"
@@ -395,7 +395,7 @@ export default function App() {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                     />
                   </div>
-                  <div>
+                  <div className="hidden">
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
                     <input
                       type="text"
