@@ -27,9 +27,9 @@ export default function App() {
       }
     }
     return {
-      tote: { name: "Túi tote Samsung", count: 44, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+      tote: { name: "Túi tote Samsung", count: 43, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
       acc: { name: "Túi phụ kiện CellphoneS", count: 34, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
-      water: { name: "Bình nước Samsung", count: 26, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
+      water: { name: "Bình nước Samsung", count: 25, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
       shirt: { name: "Pin cài áo Samsung", count: 13, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
       none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 80, img: '', icon: '🍀' }
     };
