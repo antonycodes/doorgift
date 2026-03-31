@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - email: string (required) - User's email address
+    //   - role: string (required) - User's role ('admin' or 'user')
+    //
+    // Collection: game
+    // Document ID: inventory
+    // Fields:
+    //   - items: string (required) - JSON stringified map of InventoryItem objects
+    //
+    // Collection: logs
+    // Document ID: {logId}
+    // Fields:
+    //   - timestamp: string (required) - Formatted timestamp
+    //   - result: string (required) - Name of the gift
+    //   - type: string (required) - Type of the gift or 'none'
+    //   - userName: string (required) - User's display name
+    //   - userEmail: string (required) - User's email
+    //   - userId: string (required) - User's ID
+    //   - createdAt: timestamp (required) - Firestore timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "nhanntl18402@gmail.com" && request.auth.token.email_verified == true)
+        );
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidUser() {
+      return hasOnlyAllowedFields(['email', 'role']) &&
+             hasRequiredFields(['email', 'role']) &&
+             request.resource.data.email is string &&
+             request.resource.data.role in ['admin', 'user'];
+    }
+
+    function isValidInventory() {
+      return hasOnlyAllowedFields(['items']) &&
+             hasRequiredFields(['items']) &&
+             request.resource.data.items is string;
+    }
+
+    function isValidLogEntry() {
+      return hasOnlyAllowedFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'createdAt']) &&
+             hasRequiredFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'createdAt']) &&
+             request.resource.data.timestamp is string &&
+             request.resource.data.result is string &&
+             request.resource.data.type is string &&
+             request.resource.data.userName is string &&
+             request.resource.data.userEmail is string &&
+             request.resource.data.userId is string &&
+             request.resource.data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser() &&
+                    (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isAdmin() && isValidUser();
+      allow delete: if isAdmin();
+    }
+
+    match /game/inventory {
+      allow read: if true;
+      allow create: if isAdmin() && isValidInventory();
+      allow update: if isAuthenticated() && isValidInventory();
+      allow delete: if isAdmin();
+    }
+
+    match /game/settings {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidLogEntry();
+      allow update: if false; // Logs are append-only
+      allow delete: if isAdmin(); // Allow admin to clear logs
+    }
+  }
+}

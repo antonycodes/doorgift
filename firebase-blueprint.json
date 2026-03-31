@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application, potentially an admin.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["email", "role"]
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "The current state of all gifts.",
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "string",
+          "description": "JSON stringified map of InventoryItem objects"
+        }
+      },
+      "required": ["items"]
+    },
+    "LogEntry": {
+      "title": "LogEntry",
+      "description": "A record of a flipped card.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string" },
+        "result": { "type": "string" },
+        "type": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timestamp", "result", "type", "userName", "userEmail", "userId", "createdAt"]
+    },
+    "GameSettings": {
+      "title": "GameSettings",
+      "description": "Settings for the game, like webhook URLs.",
+      "type": "object",
+      "properties": {
+        "webhookUrl": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles and roles."
+    },
+    "/game/inventory": {
+      "schema": { "$ref": "#/entities/Inventory" },
+      "description": "Stores the current inventory state."
+    },
+    "/game/settings": {
+      "schema": { "$ref": "#/entities/GameSettings" },
+      "description": "Stores the game settings."
+    },
+    "/logs/{logId}": {
+      "schema": { "$ref": "#/entities/LogEntry" },
+      "description": "Stores individual flip logs."
+    }
+  }
+}

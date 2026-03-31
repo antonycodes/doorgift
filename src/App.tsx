@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Download, X } from 'lucide-react';
+import { Settings, Download, X, LogOut } from 'lucide-react';
+import { db, auth, signInWithGoogle, logOut } from './firebase';
+import { doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 type GiftType = string;
 
@@ -7,48 +10,33 @@ interface InventoryItem {
   name: string;
   count: number;
   img: string;
-  icon: string;
+  icon?: string;
 }
 
 interface LogEntry {
   timestamp: string;
   result: string;
   type: string;
+  userName?: string;
+  userEmail?: string;
+  userId?: string;
+  createdAt?: any;
 }
 
-export default function App() {
-  const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(() => {
-    const saved = localStorage.getItem('latO_inventory');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse inventory from localStorage", e);
-      }
-    }
-    return {
-      tote: { name: "Túi tote Samsung", count: 43, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
-      acc: { name: "Túi phụ kiện CellphoneS", count: 34, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
-      water: { name: "Bình nước Samsung", count: 25, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
-      shirt: { name: "Pin cài áo Samsung", count: 13, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
-      none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 80, img: '', icon: '🍀' }
-    };
-  });
+const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
+  tote: { name: "Túi tote Samsung", count: 43, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+  acc: { name: "Túi phụ kiện CellphoneS", count: 34, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774070925/Gemini_Generated_Image_2cr3eq2cr3eq2cr3_ajy0rx.png', icon: '💼' },
+  water: { name: "Bình nước Samsung", count: 25, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072459/Gemini_Generated_Image_wgqqr3wgqqr3wgqq_dsvkis.png', icon: '🥤' },
+  shirt: { name: "Pin cài áo Samsung", count: 13, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
+  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 80, img: '', icon: '🍀' }
+};
 
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(DEFAULT_INVENTORY);
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(true);
-  const [flipLogs, setFlipLogs] = useState<LogEntry[]>(() => {
-    const saved = localStorage.getItem('latO_history');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse history from localStorage", e);
-      }
-    }
-    return [];
-  });
 
   const [showAdmin, setShowAdmin] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -60,16 +48,35 @@ export default function App() {
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
 
   useEffect(() => {
-    localStorage.setItem('latO_inventory', JSON.stringify(inventory));
-  }, [inventory]);
-
-  useEffect(() => {
-    localStorage.setItem('latO_history', JSON.stringify(flipLogs));
-  }, [flipLogs]);
-
-  useEffect(() => {
-    initGame();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const unsubInventory = onSnapshot(doc(db, 'game', 'inventory'), (docSnap) => {
+      if (docSnap.exists()) {
+        try {
+          const data = JSON.parse(docSnap.data().items);
+          setInventory(data);
+        } catch (e) {
+          console.error("Failed to parse inventory from Firestore", e);
+        }
+      } else {
+        // Initialize default inventory if it doesn't exist
+        if (user?.email === 'nhanntl18402@gmail.com') {
+          setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(DEFAULT_INVENTORY) }).catch(console.error);
+        }
+      }
+    });
+
+    return () => unsubInventory();
+  }, [user]);
+
+  useEffect(() => {
+    initGame(inventory);
+  }, []); // Run once on mount to generate initial grid
 
   const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
     let pool: GiftType[] = [];
@@ -84,35 +91,52 @@ export default function App() {
     return items.sort(() => Math.random() - 0.5);
   };
 
-  const initGame = () => {
+  const initGame = (currentInventory: Record<GiftType, InventoryItem>) => {
     setGameActive(true);
     setFlippedIndex(null);
     setShowResult(false);
     setCurrentResultType(null);
-    setGridItems(generateGridItems(inventory));
+    setGridItems(generateGridItems(currentInventory));
   };
 
-  const handleFlip = (index: number, type: GiftType) => {
+  const handleFlip = async (index: number, type: GiftType) => {
+    if (!user) {
+      alert("Vui lòng đăng nhập để chơi!");
+      signInWithGoogle();
+      return;
+    }
+
     if (!gameActive || flippedIndex !== null) return;
 
     setGameActive(false);
     setFlippedIndex(index);
 
-    const logEntry: LogEntry = {
+    const logEntry = {
       timestamp: new Date().toLocaleString('vi-VN'),
       result: inventory[type].name,
-      type: type === 'none' ? 'Trượt' : 'Trúng quà'
+      type: type === 'none' ? 'Trượt' : 'Trúng quà',
+      userName: user.displayName || 'Người chơi',
+      userEmail: user.email || 'Ẩn danh',
+      userId: user.uid || 'unknown',
+      createdAt: serverTimestamp()
     };
-    setFlipLogs(prev => [...prev, logEntry]);
 
+    let newInventory = { ...inventory };
     if (type !== 'none' && inventory[type].count > 0) {
-      setInventory(prev => ({
-        ...prev,
+      newInventory = {
+        ...inventory,
         [type]: {
-          ...prev[type],
-          count: prev[type].count - 1
+          ...inventory[type],
+          count: inventory[type].count - 1
         }
-      }));
+      };
+    }
+
+    try {
+      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(newInventory) });
+      await addDoc(collection(db, 'logs'), logEntry);
+    } catch (error) {
+      console.error("Lỗi lưu kết quả", error);
     }
 
     setTimeout(() => {
@@ -183,53 +207,75 @@ export default function App() {
     });
   };
 
-  const saveAdminSettings = () => {
-    setInventory(adminInventory);
-    setShowAdmin(false);
-    resetGame(adminInventory);
-  };
-
-  const exportLogs = () => {
-    if (flipLogs.length === 0) {
-      alert("Chưa có dữ liệu lượt chơi nào để xuất!");
-      return;
+  const saveAdminSettings = async () => {
+    try {
+      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(adminInventory) });
+      setShowAdmin(false);
+      resetGame(adminInventory);
+    } catch (error) {
+      console.error("Lỗi lưu cài đặt", error);
     }
-
-    let csvContent = "\uFEFF"; // UTF-8 BOM for Excel
-
-    // Phần tổng hợp
-    csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
-    csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
-
-    Object.keys(inventory).forEach(key => {
-      const item = inventory[key];
-      const distributed = flipLogs.filter(log => log.result === item.name).length;
-      const remaining = item.count;
-      const initial = distributed + remaining;
-      csvContent += `"${item.name}",${initial},${distributed},${remaining}\n`;
-    });
-
-    csvContent += "\nCHI TIẾT LƯỢT CHƠI,,,\n";
-    csvContent += "STT,Thời gian,Kết quả,Loại\n";
-
-    flipLogs.forEach((log, index) => {
-      csvContent += `${index + 1},${log.timestamp},"${log.result}",${log.type}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `nhat_ky_lat_o_${new Date().getTime()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
-  const handleResetData = () => {
-    localStorage.removeItem('latO_inventory');
-    localStorage.removeItem('latO_history');
-    window.location.reload();
+  const exportLogs = async () => {
+    try {
+      const snapshot = await getDocs(query(collection(db, 'logs'), orderBy('createdAt', 'asc')));
+      const logs: LogEntry[] = [];
+      snapshot.forEach(d => logs.push(d.data() as LogEntry));
+
+      if (logs.length === 0) {
+        alert("Chưa có dữ liệu lượt chơi nào để xuất!");
+        return;
+      }
+
+      let csvContent = "\uFEFF"; // UTF-8 BOM for Excel
+
+      // Phần tổng hợp
+      csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
+      csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
+
+      Object.keys(inventory).forEach(key => {
+        const item = inventory[key];
+        const distributed = logs.filter(log => log.result === item.name).length;
+        const remaining = item.count;
+        const initial = distributed + remaining;
+        csvContent += `"${item.name}",${initial},${distributed},${remaining}\n`;
+      });
+
+      csvContent += "\nCHI TIẾT LƯỢT CHƠI,,,,,\n";
+      csvContent += "STT,Thời gian,Tên người chơi,Email,Kết quả,Loại\n";
+
+      logs.forEach((log, index) => {
+        csvContent += `${index + 1},${log.timestamp},"${log.userName || 'Người chơi'}","${log.userEmail || 'Ẩn danh'}","${log.result}",${log.type}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `nhat_ky_lat_o_${new Date().getTime()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Lỗi xuất dữ liệu", error);
+    }
+  };
+
+  const handleResetData = async () => {
+    try {
+      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(DEFAULT_INVENTORY) });
+      
+      const snapshot = await getDocs(collection(db, 'logs'));
+      const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'logs', d.id)));
+      await Promise.all(deletePromises);
+
+      setShowConfirmReset(false);
+      setShowAdmin(false);
+      resetGame(DEFAULT_INVENTORY);
+    } catch (error) {
+      console.error("Lỗi khôi phục dữ liệu", error);
+    }
   };
 
   return (
@@ -246,12 +292,48 @@ export default function App() {
       <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
         <div className="logo-box"></div>
 
-        <button
-          onClick={toggleAdmin}
-          className="text-gray-400 hover:text-red-600 transition p-2 cursor-pointer"
-        >
-          <Settings className="h-6 w-6" />
-        </button>
+        <div className="flex items-center gap-3 bg-black/20 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 shadow-inner">
+          {!user ? (
+            <button onClick={signInWithGoogle} className="text-white text-sm font-semibold hover:text-red-200 transition cursor-pointer">
+              Đăng nhập
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2" title={user.email || ''}>
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="w-7 h-7 rounded-full border border-white/30 shadow-sm" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold border border-white/30 shadow-sm">
+                    {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
+                  </div>
+                )}
+                <span className="text-white text-sm font-medium hidden sm:block max-w-[120px] truncate">
+                  {user.displayName || user.email?.split('@')[0]}
+                </span>
+              </div>
+              
+              <div className="w-px h-4 bg-white/30"></div>
+              
+              {user?.email === 'nhanntl18402@gmail.com' && (
+                <button
+                  onClick={toggleAdmin}
+                  className="text-white/80 hover:text-white transition cursor-pointer"
+                  title="Cài đặt"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
+              
+              <button 
+                onClick={logOut} 
+                className="text-white/80 hover:text-white transition cursor-pointer"
+                title="Đăng xuất"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -265,7 +347,7 @@ export default function App() {
         <div className="grid grid-cols-3 gap-3 w-full max-w-md aspect-square">
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
-            const item = inventory[type];
+            const item = inventory[type] || DEFAULT_INVENTORY.none;
 
             return (
               <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
