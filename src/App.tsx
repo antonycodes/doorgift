@@ -65,7 +65,7 @@ export default function App() {
         }
       } else {
         // Initialize default inventory if it doesn't exist
-        if (user?.email === 'nhanntl18402@gmail.com') {
+        if (user?.email === 'nhanntl18402@gmail.com','nguyentranlongnhan2000@gmail.com') {
           setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(DEFAULT_INVENTORY) }).catch(console.error);
         }
       }
