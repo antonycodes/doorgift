@@ -24,11 +24,11 @@ interface LogEntry {
 }
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  tote: { name: "Túi tote Samsung", count: 30, img: 'https://res.cloudinary.com/antony12/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
-  acc: { name: "Ly sứ CellphoneS", count: 57, img: 'https://res.cloudinary.com/antony12/image/upload/v1775879290/Ly_s%E1%BB%A9_2_nzptis.png', icon: '💼' },
-  water: { name: "Túi tote CellphoneS", count: 2, img: 'https://res.cloudinary.com/antony12/image/upload/v1775879246/T%C3%BAi_CPS_ke06nf.png', icon: '🥤' },
-  shirt: { name: "Pin cài áo Samsung", count: 0, img: 'https://res.cloudinary.com/antony12/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
-  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 85, img: '', icon: '🍀' }
+  tote: { name: "Túi tote CellphoneS", count: 40, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/T%C3%BAi_CPS_xnnjri.png', icon: '🛍️' },
+  acc: { name: "Dù cầm tay CellphoneS", count:20, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/D%C3%B9_CPS_mtnh82.png', icon: '⛱️' },
+  water: { name: "Túi phụ kiện CellphoneS", count: 60, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/T%C3%BAi_ph%E1%BB%A5_ki%E1%BB%87n_CPS_ha27do.png', icon: '👝' },
+  shirt: { name: "Bình giữ nhiệt", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093227/B%C3%ACnh_n%C6%B0%E1%BB%9Bc_CPS_klghs4.png',icon:'🍾' },
+  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 70, img: '', icon: '🍀' }
 };
 
 export default function App() {
