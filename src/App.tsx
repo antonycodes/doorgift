@@ -24,10 +24,10 @@ interface LogEntry {
 }
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  tote: { name: "Túi tote Samsung", count: 30, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
-  acc: { name: "Ly sứ CellphoneS", count: 57, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1775879290/Ly_s%E1%BB%A9_2_nzptis.png', icon: '💼' },
-  water: { name: "Túi tote CellphoneS", count: 2, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1775879246/T%C3%BAi_CPS_ke06nf.png', icon: '🥤' },
-  shirt: { name: "Pin cài áo Samsung", count: 0, img: 'https://res.cloudinary.com/dxikjdqqn/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
+  tote: { name: "Túi tote Samsung", count: 30, img: 'https://res.cloudinary.com/antony12/image/upload/v1774072448/Gemini_Generated_Image_7ab5q07ab5q07ab5_lcrwcz.png', icon: '🎒' },
+  acc: { name: "Ly sứ CellphoneS", count: 57, img: 'https://res.cloudinary.com/antony12/image/upload/v1775879290/Ly_s%E1%BB%A9_2_nzptis.png', icon: '💼' },
+  water: { name: "Túi tote CellphoneS", count: 2, img: 'https://res.cloudinary.com/antony12/image/upload/v1775879246/T%C3%BAi_CPS_ke06nf.png', icon: '🥤' },
+  shirt: { name: "Pin cài áo Samsung", count: 0, img: 'https://res.cloudinary.com/antony12/image/upload/v1774579962/Gemini_Generated_Image_gf89gjgf89gjgf89_hswllc.png' },
   none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 85, img: '', icon: '🍀' }
 };
 
@@ -282,7 +282,7 @@ export default function App() {
     <div
       className="min-h-screen flex flex-col font-sans"
       style={{
-        backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
+        backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed"
@@ -355,7 +355,7 @@ export default function App() {
                   <div
                     className="flip-card-front flex items-center justify-center"
                     style={{
-                      backgroundImage: "url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774162513/Find_xa0rni.jpg')",
+                      backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774162513/Find_xa0rni.jpg')",
                       backgroundSize: "cover",
                       backgroundPosition: "center",
                       backgroundRepeat: "no-repeat"
