@@ -282,7 +282,7 @@ export default function App() {
     <div
       className="min-h-screen flex flex-col font-sans"
       style={{
-        backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774074114/Untitled-1_ykoqu4.png')",
+        backgroundImage: "url('')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed"
