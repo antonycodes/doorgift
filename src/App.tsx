@@ -24,10 +24,10 @@ interface LogEntry {
 }
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  mug: { name: "Ly sứ CPS", count: 50, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png', icon: '☕' },
-  tetBag: { name: "Túi phụ kiện tết", count: 30, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png', icon: '🧧' },
-  pencilBag: { name: "Túi bút chì đen", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635911/ndk1kjohxaoxotpaixpb.png', icon: '🎒' },
-  umbrella: { name: "Dù CPS", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png', icon: '⛱️' },
+  mug: { name: "Ly sứ CPS", count: 5, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png', icon: '☕' },
+  tetBag: { name: "Túi PK tết", count: 70, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png', icon: '🧧' },
+  cottonBag: { name: "Túi bông", count: 20, img: 'https://res.cloudinary.com/antony12/image/upload/v1788573138/T%C3%BAi_b%C3%B4ng_sm3ccs.png', icon: '🎒' },
+  umbrella: { name: "Dù CPS", count: 15, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png', icon: '⛱️' },
   none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 50, img: '', icon: '🍀' }
 };
 
