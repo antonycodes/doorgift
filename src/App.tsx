@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Download, X, LogOut } from 'lucide-react';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
-import { doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy, runTransaction } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 type GiftType = string;
@@ -24,15 +24,33 @@ interface LogEntry {
 }
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  tote: { name: "Túi tote CellphoneS", count: 40, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/T%C3%BAi_CPS_xnnjri.png', icon: '🛍️' },
-  acc: { name: "Dù cầm tay CellphoneS", count:20, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/D%C3%B9_CPS_mtnh82.png', icon: '⛱️' },
-  water: { name: "Túi phụ kiện CellphoneS", count: 60, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093228/T%C3%BAi_ph%E1%BB%A5_ki%E1%BB%87n_CPS_ha27do.png', icon: '👝' },
-  shirt: { name: "Bình giữ nhiệt", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1779093227/B%C3%ACnh_n%C6%B0%E1%BB%9Bc_CPS_klghs4.png',icon:'🍾' },
-  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 70, img: '', icon: '🍀' }
+  mug: { name: "Ly sứ CPS", count: 50, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png', icon: '☕' },
+  tetBag: { name: "Túi phụ kiện tết", count: 30, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png', icon: '🧧' },
+  pencilBag: { name: "Túi bút chì đen", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635911/ndk1kjohxaoxotpaixpb.png', icon: '🎒' },
+  umbrella: { name: "Dù CPS", count: 10, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png', icon: '⛱️' },
+  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 50, img: '', icon: '🍀' }
 };
+
+const RESULT_DELAY_MS = 500;
+const RESET_DELAY_MS = 500;
+
+const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
+const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
+
+async function saveInventoryItems(items: Record<string, InventoryItem>) {
+  const current = await getDocs(inventoryCollectionRef());
+  const desiredKeys = new Set(Object.keys(items));
+  await Promise.all([
+    ...Object.entries(items).map(([key, item]) => setDoc(inventoryItemRef(key), item)),
+    ...current.docs
+      .filter(itemDoc => !desiredKeys.has(itemDoc.id))
+      .map(itemDoc => deleteDoc(itemDoc.ref))
+  ]);
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(DEFAULT_INVENTORY);
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
@@ -42,6 +60,7 @@ export default function App() {
   const [showResult, setShowResult] = useState(false);
   const [currentResultType, setCurrentResultType] = useState<GiftType | null>(null);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   // Admin form state
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
@@ -50,29 +69,33 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (!currentUser) {
+        setIsAdmin(false);
+        return;
+      }
+      setIsAdmin(currentUser.email === 'nhanntl18402@gmail.com');
     });
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    const unsubInventory = onSnapshot(doc(db, 'game', 'inventory'), (docSnap) => {
-      if (docSnap.exists()) {
-        try {
-          const data = JSON.parse(docSnap.data().items);
-          setInventory(data);
-        } catch (e) {
-          console.error("Failed to parse inventory from Firestore", e);
-        }
-      } else {
-        // Initialize default inventory if it doesn't exist
-        if (user?.email === 'nhanntl18402@gmail.com','nguyentranlongnhan2000@gmail.com') {
-          setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(DEFAULT_INVENTORY) }).catch(console.error);
-        }
+    if (!user) return;
+
+    const unsubInventory = onSnapshot(inventoryCollectionRef(), (snapshot) => {
+      if (snapshot.empty) {
+        if (isAdmin) saveInventoryItems(DEFAULT_INVENTORY).catch(console.error);
+        return;
       }
+
+      const nextInventory: Record<GiftType, InventoryItem> = {};
+      snapshot.forEach(itemDoc => {
+        nextInventory[itemDoc.id] = itemDoc.data() as InventoryItem;
+      });
+      setInventory(nextInventory);
     });
 
     return () => unsubInventory();
-  }, [user]);
+  }, [user, isAdmin]);
 
   useEffect(() => {
     initGame(inventory);
@@ -121,28 +144,30 @@ export default function App() {
       createdAt: serverTimestamp()
     };
 
-    let newInventory = { ...inventory };
-    if (type !== 'none' && inventory[type].count > 0) {
-      newInventory = {
-        ...inventory,
-        [type]: {
-          ...inventory[type],
-          count: inventory[type].count - 1
-        }
-      };
-    }
-
     try {
-      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(newInventory) });
+      const inventoryRef = inventoryItemRef(type);
+      await runTransaction(db, async (transaction) => {
+        const inventorySnapshot = await transaction.get(inventoryRef);
+        if (!inventorySnapshot.exists()) throw new Error('Món quà không còn trong kho.');
+
+        const latestItem = inventorySnapshot.data() as InventoryItem;
+        if (latestItem.count <= 0) throw new Error('Món quà này vừa hết trong kho.');
+
+        transaction.update(inventoryRef, { count: latestItem.count - 1 });
+      });
       await addDoc(collection(db, 'logs'), logEntry);
     } catch (error) {
       console.error("Lỗi lưu kết quả", error);
+      setGameActive(true);
+      setFlippedIndex(null);
+      alert(error instanceof Error ? error.message : 'Không thể lưu kết quả. Vui lòng thử lại.');
+      return;
     }
 
     setTimeout(() => {
       setCurrentResultType(type);
       setShowResult(true);
-    }, 600);
+    }, RESULT_DELAY_MS);
   };
 
   const resetGame = (overrideInventory?: Record<GiftType, InventoryItem>) => {
@@ -153,7 +178,7 @@ export default function App() {
       setGridItems(generateGridItems(overrideInventory || inventory));
       setCurrentResultType(null);
       setGameActive(true);
-    }, 600);
+    }, RESET_DELAY_MS);
   };
 
   const toggleAdmin = () => {
@@ -208,16 +233,20 @@ export default function App() {
   };
 
   const saveAdminSettings = async () => {
+    if (!isAdmin) return;
     try {
-      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(adminInventory) });
+      await saveInventoryItems(adminInventory);
       setShowAdmin(false);
       resetGame(adminInventory);
+      setSaveMessage('Lưu thành công');
+      window.setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error("Lỗi lưu cài đặt", error);
     }
   };
 
   const exportLogs = async () => {
+    if (!isAdmin) return;
     try {
       const snapshot = await getDocs(query(collection(db, 'logs'), orderBy('createdAt', 'asc')));
       const logs: LogEntry[] = [];
@@ -263,8 +292,9 @@ export default function App() {
   };
 
   const handleResetData = async () => {
+    if (!isAdmin) return;
     try {
-      await setDoc(doc(db, 'game', 'inventory'), { items: JSON.stringify(DEFAULT_INVENTORY) });
+      await saveInventoryItems(DEFAULT_INVENTORY);
       
       const snapshot = await getDocs(collection(db, 'logs'));
       const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'logs', d.id)));
@@ -273,6 +303,8 @@ export default function App() {
       setShowConfirmReset(false);
       setShowAdmin(false);
       resetGame(DEFAULT_INVENTORY);
+      setSaveMessage('Khôi phục thành công');
+      window.setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error("Lỗi khôi phục dữ liệu", error);
     }
@@ -314,7 +346,7 @@ export default function App() {
               
               <div className="w-px h-4 bg-white/30"></div>
               
-              {user?.email === 'nhanntl18402@gmail.com' && (
+              {isAdmin && (
                 <button
                   onClick={toggleAdmin}
                   className="text-white/80 hover:text-white transition cursor-pointer"
@@ -525,6 +557,12 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {saveMessage && (
+        <div className="fixed top-20 right-4 z-[70] rounded-lg bg-green-600 px-5 py-3 text-sm font-bold text-white shadow-xl">
+          {saveMessage}
         </div>
       )}
 

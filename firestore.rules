@@ -38,11 +38,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-          (request.auth.token.email == "nhanntl18402@gmail.com" && request.auth.token.email_verified == true)
-        );
+        request.auth.token.email == "nhanntl18402@gmail.com" &&
+        request.auth.token.email_verified == true;
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -60,10 +57,21 @@ service cloud.firestore {
              request.resource.data.role in ['admin', 'user'];
     }
 
-    function isValidInventory() {
-      return hasOnlyAllowedFields(['items']) &&
-             hasRequiredFields(['items']) &&
-             request.resource.data.items is string;
+    function isValidInventoryItem() {
+      return hasOnlyAllowedFields(['name', 'count', 'img', 'icon']) &&
+             hasRequiredFields(['name', 'count', 'img', 'icon']) &&
+             request.resource.data.name is string &&
+             request.resource.data.count is int &&
+             request.resource.data.count >= 0 &&
+             request.resource.data.img is string &&
+             request.resource.data.icon is string;
+    }
+
+    function isPlayerDecrement() {
+      return isAuthenticated() &&
+             isValidInventoryItem() &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['count']) &&
+             request.resource.data.count == resource.data.count - 1;
     }
 
     function isValidLogEntry() {
@@ -91,9 +99,13 @@ service cloud.firestore {
     }
 
     match /game/inventory {
-      allow read: if true;
-      allow create: if isAdmin() && isValidInventory();
-      allow update: if isAuthenticated() && isValidInventory();
+      allow read, write: if false;
+    }
+
+    match /game/inventory/items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidInventoryItem();
+      allow update: if (isAdmin() && isValidInventoryItem()) || isPlayerDecrement();
       allow delete: if isAdmin();
     }
 
