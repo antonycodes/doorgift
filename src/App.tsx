@@ -106,7 +106,7 @@ export default function App() {
   useEffect(() => {
     const adminEmails = new Set<string>([
       'nhanntl18402@gmail.com',
-      'loc.vt@dieuphuc.com.vn',
+      'vuuloc123@gmail.com',
       'nhannguyen.cellphones@gmail.com',
     ]);
 
