@@ -1,7 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Settings, Download, X, LogOut } from 'lucide-react';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
-import { doc, onSnapshot, setDoc, collection, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy, runTransaction } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  setDoc,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  runTransaction,
+} from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 type GiftType = string;
@@ -20,15 +32,40 @@ interface LogEntry {
   userName?: string;
   userEmail?: string;
   userId?: string;
-  createdAt?: any;
+  createdAt?: unknown;
 }
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  mug: { name: "Ly sứ CPS", count: 5, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png', icon: '☕' },
-  tetBag: { name: "Túi PK tết", count: 70, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png', icon: '🧧' },
-  cottonBag: { name: "Túi bông", count: 20, img: 'https://res.cloudinary.com/antony12/image/upload/v1788573138/T%C3%BAi_b%C3%B4ng_sm3ccs.png', icon: '🎒' },
-  umbrella: { name: "Dù CPS", count: 15, img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png', icon: '⛱️' },
-  none: { name: "CHÚC BẠN MAY MẮN LẦN SAU", count: 50, img: '', icon: '🍀' }
+  mug: {
+    name: 'Ly sứ CPS',
+    count: 5,
+    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png',
+    icon: '☕',
+  },
+  tetBag: {
+    name: 'Túi PK tết',
+    count: 70,
+    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png',
+    icon: '🧧',
+  },
+  cottonBag: {
+    name: 'Túi bông',
+    count: 20,
+    img: 'https://res.cloudinary.com/antony12/image/upload/v1788573138/T%C3%BAi_b%C3%B4ng_sm3ccs.png',
+    icon: '🎒',
+  },
+  umbrella: {
+    name: 'Dù CPS',
+    count: 15,
+    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png',
+    icon: '⛱️',
+  },
+  none: {
+    name: 'CHÚC BẠN MAY MẮN LẦN SAU',
+    count: 50,
+    img: '',
+    icon: '🍀',
+  },
 };
 
 const RESULT_DELAY_MS = 500;
@@ -40,11 +77,12 @@ const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', 
 async function saveInventoryItems(items: Record<string, InventoryItem>) {
   const current = await getDocs(inventoryCollectionRef());
   const desiredKeys = new Set(Object.keys(items));
+
   await Promise.all([
     ...Object.entries(items).map(([key, item]) => setDoc(inventoryItemRef(key), item)),
     ...current.docs
-      .filter(itemDoc => !desiredKeys.has(itemDoc.id))
-      .map(itemDoc => deleteDoc(itemDoc.ref))
+      .filter((itemDoc) => !desiredKeys.has(itemDoc.id))
+      .map((itemDoc) => deleteDoc(itemDoc.ref)),
   ]);
 }
 
@@ -62,79 +100,70 @@ export default function App() {
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
-  // Admin form state
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
 
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-    setUser(currentUser);
-
-    if (!currentUser) {
-      setIsAdmin(false);
-      return;
-    }
-
-    useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-    setUser(currentUser);
-
-    if (!currentUser) {
-      setIsAdmin(false);
-      return;
-    }
-
-    const adminEmails: string[] = [
+  useEffect(() => {
+    const adminEmails = new Set<string>([
       'nhanntl18402@gmail.com',
       'loc.vt@dieuphuc.com.vn',
       'nhannguyen.cellphones@gmail.com',
-    ];
+    ]);
 
-    const email = currentUser.email;
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
 
-    setIsAdmin(
-      email !== null && adminEmails.includes(email)
-    );
-  });
+      const email = currentUser?.email;
+      setIsAdmin(email !== null && email !== undefined && adminEmails.has(email));
+    });
 
-  return unsubscribe;
-}, []);
+    return unsubscribe;
+  }, []);
 
-useEffect(() => {
-  if (!user) return;
+  useEffect(() => {
+    if (!user) {
+      setInventory(DEFAULT_INVENTORY);
+      return;
+    }
 
-  // xử lý khi user thay đổi
-}, [user]);
-    const unsubInventory = onSnapshot(inventoryCollectionRef(), (snapshot) => {
+    const unsubscribe = onSnapshot(inventoryCollectionRef(), (snapshot) => {
       if (snapshot.empty) {
-        if (isAdmin) saveInventoryItems(DEFAULT_INVENTORY).catch(console.error);
+        if (isAdmin) {
+          void saveInventoryItems(DEFAULT_INVENTORY).catch(console.error);
+        }
         return;
       }
 
       const nextInventory: Record<GiftType, InventoryItem> = {};
-      snapshot.forEach(itemDoc => {
+      snapshot.forEach((itemDoc) => {
         nextInventory[itemDoc.id] = itemDoc.data() as InventoryItem;
       });
       setInventory(nextInventory);
     });
 
-    return () => unsubInventory();
+    return unsubscribe;
   }, [user, isAdmin]);
 
   useEffect(() => {
     initGame(inventory);
-  }, []); // Run once on mount to generate initial grid
+  }, []);
 
   const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
     let pool: GiftType[] = [];
-    Object.keys(currentInventory).forEach(key => {
-      for (let i = 0; i < currentInventory[key].count; i++) pool.push(key);
+
+    Object.keys(currentInventory).forEach((key) => {
+      for (let i = 0; i < currentInventory[key].count; i += 1) {
+        pool.push(key);
+      }
     });
+
     pool = pool.sort(() => Math.random() - 0.5);
-    let items = pool.slice(0, 9);
+    const items = pool.slice(0, 9);
+
     while (items.length < 9) {
       items.push('none');
     }
+
     return items.sort(() => Math.random() - 0.5);
   };
 
@@ -148,47 +177,56 @@ useEffect(() => {
 
   const handleFlip = async (index: number, type: GiftType) => {
     if (!user) {
-      alert("Vui lòng đăng nhập để chơi!");
-      signInWithGoogle();
+      alert('Vui lòng đăng nhập để chơi!');
+      void signInWithGoogle();
       return;
     }
 
     if (!gameActive || flippedIndex !== null) return;
+
+    const selectedItem = inventory[type];
+    if (!selectedItem) return;
 
     setGameActive(false);
     setFlippedIndex(index);
 
     const logEntry = {
       timestamp: new Date().toLocaleString('vi-VN'),
-      result: inventory[type].name,
+      result: selectedItem.name,
       type: type === 'none' ? 'Trượt' : 'Trúng quà',
       userName: user.displayName || 'Người chơi',
       userEmail: user.email || 'Ẩn danh',
       userId: user.uid || 'unknown',
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     };
 
     try {
       const inventoryRef = inventoryItemRef(type);
+
       await runTransaction(db, async (transaction) => {
         const inventorySnapshot = await transaction.get(inventoryRef);
-        if (!inventorySnapshot.exists()) throw new Error('Món quà không còn trong kho.');
+        if (!inventorySnapshot.exists()) {
+          throw new Error('Món quà không còn trong kho.');
+        }
 
         const latestItem = inventorySnapshot.data() as InventoryItem;
-        if (latestItem.count <= 0) throw new Error('Món quà này vừa hết trong kho.');
+        if (latestItem.count <= 0) {
+          throw new Error('Món quà này vừa hết trong kho.');
+        }
 
         transaction.update(inventoryRef, { count: latestItem.count - 1 });
       });
+
       await addDoc(collection(db, 'logs'), logEntry);
     } catch (error) {
-      console.error("Lỗi lưu kết quả", error);
+      console.error('Lỗi lưu kết quả', error);
       setGameActive(true);
       setFlippedIndex(null);
       alert(error instanceof Error ? error.message : 'Không thể lưu kết quả. Vui lòng thử lại.');
       return;
     }
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setCurrentResultType(type);
       setShowResult(true);
     }, RESULT_DELAY_MS);
@@ -198,7 +236,7 @@ useEffect(() => {
     setShowResult(false);
     setFlippedIndex(null);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setGridItems(generateGridItems(overrideInventory || inventory));
       setCurrentResultType(null);
       setGameActive(true);
@@ -207,49 +245,56 @@ useEffect(() => {
 
   const toggleAdmin = () => {
     if (!showAdmin) {
-      setAdminInventory(JSON.parse(JSON.stringify(inventory)));
+      setAdminInventory(JSON.parse(JSON.stringify(inventory)) as Record<string, InventoryItem>);
       setNewItem({ id: '', name: '', count: 0, img: '' });
     }
     setShowAdmin(!showAdmin);
   };
 
-  const handleAdminChange = (key: string, field: keyof InventoryItem, value: string | number) => {
-    setAdminInventory(prev => ({
+  const handleAdminChange = (
+    key: string,
+    field: keyof InventoryItem,
+    value: string | number,
+  ) => {
+    setAdminInventory((prev) => ({
       ...prev,
       [key]: {
         ...prev[key],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   const handleAddNewItem = () => {
     if (!newItem.id || !newItem.name) {
-      alert("Vui lòng nhập mã và tên quà!");
+      alert('Vui lòng nhập mã và tên quà!');
       return;
     }
+
     if (adminInventory[newItem.id]) {
-      alert("Mã quà này đã tồn tại!");
+      alert('Mã quà này đã tồn tại!');
       return;
     }
-    setAdminInventory(prev => ({
+
+    setAdminInventory((prev) => ({
       ...prev,
       [newItem.id]: {
         name: newItem.name,
         count: newItem.count,
         img: newItem.img,
-        icon: '🎁'
-      }
+        icon: '🎁',
+      },
     }));
     setNewItem({ id: '', name: '', count: 0, img: '' });
   };
 
   const handleRemoveItem = (key: string) => {
     if (key === 'none') {
-      alert("Không thể xóa ô Chúc may mắn lần sau!");
+      alert('Không thể xóa ô Chúc may mắn lần sau!');
       return;
     }
-    setAdminInventory(prev => {
+
+    setAdminInventory((prev) => {
       const copy = { ...prev };
       delete copy[key];
       return copy;
@@ -258,45 +303,46 @@ useEffect(() => {
 
   const saveAdminSettings = async () => {
     if (!isAdmin) return;
+
     try {
       await saveInventoryItems(adminInventory);
+      setInventory(adminInventory);
       setShowAdmin(false);
       resetGame(adminInventory);
       setSaveMessage('Lưu thành công');
       window.setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
-      console.error("Lỗi lưu cài đặt", error);
+      console.error('Lỗi lưu cài đặt', error);
     }
   };
 
   const exportLogs = async () => {
     if (!isAdmin) return;
+
     try {
       const snapshot = await getDocs(query(collection(db, 'logs'), orderBy('createdAt', 'asc')));
       const logs: LogEntry[] = [];
-      snapshot.forEach(d => logs.push(d.data() as LogEntry));
+      snapshot.forEach((itemDoc) => logs.push(itemDoc.data() as LogEntry));
 
       if (logs.length === 0) {
-        alert("Chưa có dữ liệu lượt chơi nào để xuất!");
+        alert('Chưa có dữ liệu lượt chơi nào để xuất!');
         return;
       }
 
-      let csvContent = "\uFEFF"; // UTF-8 BOM for Excel
+      let csvContent = '\uFEFF';
+      csvContent += 'TỔNG HỢP QUÀ TẶNG,,,\n';
+      csvContent += 'Loại quà,Ban đầu,Đã phát,Còn lại\n';
 
-      // Phần tổng hợp
-      csvContent += "TỔNG HỢP QUÀ TẶNG,,,\n";
-      csvContent += "Loại quà,Ban đầu,Đã phát,Còn lại\n";
-
-      Object.keys(inventory).forEach(key => {
+      Object.keys(inventory).forEach((key) => {
         const item = inventory[key];
-        const distributed = logs.filter(log => log.result === item.name).length;
+        const distributed = logs.filter((log) => log.result === item.name).length;
         const remaining = item.count;
         const initial = distributed + remaining;
         csvContent += `"${item.name}",${initial},${distributed},${remaining}\n`;
       });
 
-      csvContent += "\nCHI TIẾT LƯỢT CHƠI,,,,,\n";
-      csvContent += "STT,Thời gian,Tên người chơi,Email,Kết quả,Loại\n";
+      csvContent += '\nCHI TIẾT LƯỢT CHƠI,,,,,\n';
+      csvContent += 'STT,Thời gian,Tên người chơi,Email,Kết quả,Loại\n';
 
       logs.forEach((log, index) => {
         csvContent += `${index + 1},${log.timestamp},"${log.userName || 'Người chơi'}","${log.userEmail || 'Ẩn danh'}","${log.result}",${log.type}\n`;
@@ -304,33 +350,36 @@ useEffect(() => {
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `nhat_ky_lat_o_${new Date().getTime()}.csv`);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `nhat_ky_lat_o_${new Date().getTime()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Lỗi xuất dữ liệu", error);
+      console.error('Lỗi xuất dữ liệu', error);
     }
   };
 
   const handleResetData = async () => {
     if (!isAdmin) return;
+
     try {
       await saveInventoryItems(DEFAULT_INVENTORY);
-      
+
       const snapshot = await getDocs(collection(db, 'logs'));
-      const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, 'logs', d.id)));
+      const deletePromises = snapshot.docs.map((itemDoc) => deleteDoc(itemDoc.ref));
       await Promise.all(deletePromises);
 
+      setInventory(DEFAULT_INVENTORY);
       setShowConfirmReset(false);
       setShowAdmin(false);
       resetGame(DEFAULT_INVENTORY);
       setSaveMessage('Khôi phục thành công');
       window.setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
-      console.error("Lỗi khôi phục dữ liệu", error);
+      console.error('Lỗi khôi phục dữ liệu', error);
     }
   };
 
@@ -339,18 +388,17 @@ useEffect(() => {
       className="min-h-screen flex flex-col font-sans"
       style={{
         backgroundImage: "url('')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed"
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
       }}
     >
-      {/* Header */}
       <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
         <div className="logo-box"></div>
 
         <div className="flex items-center gap-3 bg-black/20 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 shadow-inner">
           {!user ? (
-            <button onClick={signInWithGoogle} className="text-white text-sm font-semibold hover:text-red-200 transition cursor-pointer">
+            <button onClick={() => void signInWithGoogle()} className="text-white text-sm font-semibold hover:text-red-200 transition cursor-pointer">
               Đăng nhập
             </button>
           ) : (
@@ -367,24 +415,16 @@ useEffect(() => {
                   {user.displayName || user.email?.split('@')[0]}
                 </span>
               </div>
-              
+
               <div className="w-px h-4 bg-white/30"></div>
-              
+
               {isAdmin && (
-                <button
-                  onClick={toggleAdmin}
-                  className="text-white/80 hover:text-white transition cursor-pointer"
-                  title="Cài đặt"
-                >
+                <button onClick={toggleAdmin} className="text-white/80 hover:text-white transition cursor-pointer" title="Cài đặt">
                   <Settings className="h-4 w-4" />
                 </button>
               )}
-              
-              <button 
-                onClick={logOut} 
-                className="text-white/80 hover:text-white transition cursor-pointer"
-                title="Đăng xuất"
-              >
+
+              <button onClick={logOut} className="text-white/80 hover:text-white transition cursor-pointer" title="Đăng xuất">
                 <LogOut className="h-4 w-4" />
               </button>
             </div>
@@ -392,14 +432,12 @@ useEffect(() => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ </h1>
+          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ</h1>
           <p className="text-red-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
         </div>
 
-        {/* Game Grid */}
         <div className="grid grid-cols-3 gap-3 w-full max-w-md aspect-square">
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
@@ -407,17 +445,16 @@ useEffect(() => {
 
             return (
               <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
-                <div className="flip-card-inner" onClick={() => handleFlip(index, type)}>
+                <div className="flip-card-inner" onClick={() => void handleFlip(index, type)}>
                   <div
                     className="flip-card-front flex items-center justify-center"
                     style={{
                       backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774162513/Find_xa0rni.jpg')",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      backgroundRepeat: "no-repeat"
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
                     }}
-                  >
-                  </div>
+                  ></div>
                   <div className="flip-card-back flex-col">
                     {item.img ? (
                       <img src={item.img} alt={item.name} className="gift-image" />
@@ -435,7 +472,6 @@ useEffect(() => {
         </div>
       </main>
 
-      {/* Admin Modal */}
       {showAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-3xl max-h-[90vh] overflow-y-auto">
@@ -447,9 +483,10 @@ useEffect(() => {
             </div>
 
             <div className="space-y-6">
-              {Object.keys(adminInventory).map(key => {
+              {Object.keys(adminInventory).map((key) => {
                 const item = adminInventory[key];
                 const isNone = key === 'none';
+
                 return (
                   <div key={key} className="p-4 border border-gray-100 rounded-xl bg-gray-50 relative">
                     {!isNone && (
@@ -458,8 +495,9 @@ useEffect(() => {
                       </button>
                     )}
                     <label className="block text-sm font-bold text-red-600 mb-3 uppercase tracking-wider">
-                      {isNone ? "CHÚC MAY MẮN LẦN SAU (TRƯỢT)" : item.name}
+                      {isNone ? 'CHÚC MAY MẮN LẦN SAU (TRƯỢT)' : item.name}
                     </label>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {!isNone && (
                         <div className="md:col-span-2">
@@ -467,28 +505,30 @@ useEffect(() => {
                           <input
                             type="text"
                             value={item.name}
-                            onChange={(e) => handleAdminChange(key, 'name', e.target.value)}
+                            onChange={(event) => handleAdminChange(key, 'name', event.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                           />
                         </div>
                       )}
+
                       <div>
                         <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng kho</label>
                         <input
                           type="number"
                           value={item.count}
-                          onChange={(e) => handleAdminChange(key, 'count', parseInt(e.target.value) || 0)}
+                          onChange={(event) => handleAdminChange(key, 'count', Number.parseInt(event.target.value, 10) || 0)}
                           min="0"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                         />
                       </div>
+
                       {!isNone && (
                         <div className="hidden">
                           <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
                           <input
                             type="text"
                             value={item.img}
-                            onChange={(e) => handleAdminChange(key, 'img', e.target.value)}
+                            onChange={(event) => handleAdminChange(key, 'img', event.target.value)}
                             placeholder="https://res.cloudinary.com/..."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
                           />
@@ -499,7 +539,6 @@ useEffect(() => {
                 );
               })}
 
-              {/* Add new item form */}
               <div className="p-4 border-2 border-dashed border-gray-300 rounded-xl bg-white">
                 <label className="block text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider">THÊM QUÀ MỚI</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
@@ -508,7 +547,7 @@ useEffect(() => {
                     <input
                       type="text"
                       value={newItem.id}
-                      onChange={(e) => setNewItem({ ...newItem, id: e.target.value })}
+                      onChange={(event) => setNewItem({ ...newItem, id: event.target.value })}
                       placeholder="vd: voucher50k"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                     />
@@ -518,7 +557,7 @@ useEffect(() => {
                     <input
                       type="text"
                       value={newItem.name}
-                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                      onChange={(event) => setNewItem({ ...newItem, name: event.target.value })}
                       placeholder="vd: Voucher 50.000đ"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                     />
@@ -528,7 +567,7 @@ useEffect(() => {
                     <input
                       type="number"
                       value={newItem.count}
-                      onChange={(e) => setNewItem({ ...newItem, count: parseInt(e.target.value) || 0 })}
+                      onChange={(event) => setNewItem({ ...newItem, count: Number.parseInt(event.target.value, 10) || 0 })}
                       min="0"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                     />
@@ -538,7 +577,7 @@ useEffect(() => {
                     <input
                       type="text"
                       value={newItem.img}
-                      onChange={(e) => setNewItem({ ...newItem, img: e.target.value })}
+                      onChange={(event) => setNewItem({ ...newItem, img: event.target.value })}
                       placeholder="https://res.cloudinary.com/..."
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
                     />
@@ -566,7 +605,6 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Confirm Reset Modal */}
       {showConfirmReset && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
@@ -590,7 +628,6 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Win/Loss Notification Overlay */}
       {showResult && currentResultType && (
         <div className="fixed inset-0 bg-white/95 flex flex-col items-center justify-center z-40 text-center p-6 backdrop-blur-sm">
           <div className="mb-6 w-72 h-72 md:w-96 md:h-96 flex items-center justify-center">
@@ -600,7 +637,7 @@ useEffect(() => {
               <span className="text-[10rem]">{inventory[currentResultType].icon}</span>
             )}
           </div>
-          <h2 className={`mb-6 ${currentResultType === 'none' ? "text-2xl font-bold text-gray-500" : "text-3xl font-bold text-red-600 scale-110 transition-all"}`}>
+          <h2 className={`mb-6 ${currentResultType === 'none' ? 'text-2xl font-bold text-gray-500' : 'text-3xl font-bold text-red-600 scale-110 transition-all'}`}>
             {inventory[currentResultType].name}
           </h2>
           <button onClick={() => resetGame()} className="bg-red-600 text-white px-10 py-3 rounded-full font-bold shadow-xl cursor-pointer hover:bg-red-700 transition">
