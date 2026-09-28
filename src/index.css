@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-enter 220ms ease-out both;
+}
+
 .flip-card {
   background-color: transparent;
   perspective: 1000px;

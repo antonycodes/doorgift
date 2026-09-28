@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Settings, Download, X, LogOut } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Settings, Download, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
 import {
   doc,
@@ -71,6 +71,11 @@ const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
 const RESULT_DELAY_MS = 500;
 const RESET_DELAY_MS = 500;
 
+type Feedback = {
+  type: 'success' | 'error';
+  message: string;
+};
+
 const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
 
@@ -86,6 +91,42 @@ async function saveInventoryItems(items: Record<string, InventoryItem>) {
   ]);
 }
 
+function optimizeGiftImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Không thể đọc file ảnh.'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('File không phải ảnh hợp lệ.'));
+      image.onload = () => {
+        const maxDimension = 900;
+        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          reject(new Error('Trình duyệt không hỗ trợ xử lý ảnh.'));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const optimizedImage = canvas.toDataURL('image/webp', 0.8);
+
+        if (optimizedImage.length > 700_000) {
+          reject(new Error('Ảnh vẫn quá lớn sau khi nén. Vui lòng chọn ảnh khác.'));
+          return;
+        }
+
+        resolve(optimizedImage);
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -98,7 +139,10 @@ export default function App() {
   const [showResult, setShowResult] = useState(false);
   const [currentResultType, setCurrentResultType] = useState<GiftType | null>(null);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
@@ -112,9 +156,8 @@ export default function App() {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-
       const email = currentUser?.email;
-      setIsAdmin(email !== null && email !== undefined && adminEmails.has(email));
+      setIsAdmin(Boolean(currentUser?.emailVerified && email && adminEmails.has(email)));
     });
 
     return unsubscribe;
@@ -147,6 +190,32 @@ export default function App() {
   useEffect(() => {
     initGame(inventory);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current !== null) {
+        window.clearTimeout(feedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showFeedback = (nextFeedback: Feedback) => {
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+    setFeedback(nextFeedback);
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback(null);
+      feedbackTimerRef.current = null;
+    }, 3500);
+  };
+
+  const getActionErrorMessage = (error: unknown, action: string) => {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied') {
+      return `Không thể ${action}: tài khoản chưa có quyền quản trị hoặc chưa xác minh email.`;
+    }
+    return `Không thể ${action}. Vui lòng thử lại.`;
+  };
 
   const generateGridItems = (currentInventory: Record<GiftType, InventoryItem>) => {
     let pool: GiftType[] = [];
@@ -288,6 +357,28 @@ export default function App() {
     setNewItem({ id: '', name: '', count: 0, img: '' });
   };
 
+  const handleNewItemImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showFeedback({ type: 'error', message: 'Vui lòng chọn đúng file hình ảnh.' });
+      return;
+    }
+
+    try {
+      const image = await optimizeGiftImage(file);
+      setNewItem(prev => ({ ...prev, img: image }));
+      showFeedback({ type: 'success', message: 'Đã chèn ảnh quà thành công' });
+    } catch (error) {
+      showFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Không thể xử lý ảnh. Vui lòng thử lại.'
+      });
+    }
+  };
+
   const handleRemoveItem = (key: string) => {
     if (key === 'none') {
       alert('Không thể xóa ô Chúc may mắn lần sau!');
@@ -302,17 +393,19 @@ export default function App() {
   };
 
   const saveAdminSettings = async () => {
-    if (!isAdmin) return;
-
+    if (!isAdmin || isSaving || isResetting) return;
+    setIsSaving(true);
     try {
       await saveInventoryItems(adminInventory);
       setInventory(adminInventory);
       setShowAdmin(false);
       resetGame(adminInventory);
-      setSaveMessage('Lưu thành công');
-      window.setTimeout(() => setSaveMessage(''), 3000);
+      showFeedback({ type: 'success', message: 'Đã lưu thay đổi thành công' });
     } catch (error) {
       console.error('Lỗi lưu cài đặt', error);
+      showFeedback({ type: 'error', message: getActionErrorMessage(error, 'lưu thay đổi') });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -363,8 +456,8 @@ export default function App() {
   };
 
   const handleResetData = async () => {
-    if (!isAdmin) return;
-
+    if (!isAdmin || isSaving || isResetting) return;
+    setIsResetting(true);
     try {
       await saveInventoryItems(DEFAULT_INVENTORY);
 
@@ -376,10 +469,12 @@ export default function App() {
       setShowConfirmReset(false);
       setShowAdmin(false);
       resetGame(DEFAULT_INVENTORY);
-      setSaveMessage('Khôi phục thành công');
-      window.setTimeout(() => setSaveMessage(''), 3000);
+      showFeedback({ type: 'success', message: 'Đã khôi phục dữ liệu gốc thành công' });
     } catch (error) {
       console.error('Lỗi khôi phục dữ liệu', error);
+      showFeedback({ type: 'error', message: getActionErrorMessage(error, 'khôi phục dữ liệu gốc') });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -572,15 +667,34 @@ export default function App() {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
                     />
                   </div>
-                  <div className="hidden">
-                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
-                    <input
-                      type="text"
-                      value={newItem.img}
-                      onChange={(event) => setNewItem({ ...newItem, img: event.target.value })}
-                      placeholder="https://res.cloudinary.com/..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none text-xs"
-                    />
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">Ảnh quà</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        {newItem.img ? (
+                          <img src={newItem.img} alt="Xem trước quà mới" className="h-full w-full object-contain" />
+                        ) : (
+                          <ImagePlus className="h-7 w-7 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-900">
+                          <ImagePlus className="h-4 w-4" />
+                          CHỌN ẢNH
+                          <input type="file" accept="image/*" onChange={handleNewItemImageChange} className="hidden" />
+                        </label>
+                        {newItem.img && (
+                          <button
+                            type="button"
+                            onClick={() => setNewItem(prev => ({ ...prev, img: '' }))}
+                            className="rounded-lg px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                          >
+                            XÓA ẢNH
+                          </button>
+                        )}
+                        <p className="basis-full text-[10px] text-gray-400">Ảnh sẽ được nén tự động trước khi lưu.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <button onClick={handleAddNewItem} className="w-full bg-gray-800 text-white py-2 rounded-lg font-bold hover:bg-gray-900 transition cursor-pointer text-sm">
@@ -590,14 +704,22 @@ export default function App() {
             </div>
 
             <div className="mt-8 space-y-3">
-              <button onClick={saveAdminSettings} className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition cursor-pointer">
-                LƯU THAY ĐỔI
+              <button
+                onClick={saveAdminSettings}
+                disabled={isSaving || isResetting}
+                className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSaving ? 'ĐANG LƯU...' : 'LƯU THAY ĐỔI'}
               </button>
               <button onClick={exportLogs} className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 cursor-pointer">
                 <Download className="h-5 w-5" />
                 XUẤT FILE NHẬT KÝ (LOG)
               </button>
-              <button onClick={() => setShowConfirmReset(true)} className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4">
+              <button
+                onClick={() => setShowConfirmReset(true)}
+                disabled={isSaving || isResetting}
+                className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 KHÔI PHỤC DỮ LIỆU GỐC
               </button>
             </div>
@@ -614,17 +736,27 @@ export default function App() {
               <button onClick={() => setShowConfirmReset(false)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition cursor-pointer">
                 HỦY
               </button>
-              <button onClick={handleResetData} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition cursor-pointer">
-                KHÔI PHỤC
+              <button
+                onClick={handleResetData}
+                disabled={isResetting || isSaving}
+                className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
+              >
+                {isResetting ? 'ĐANG KHÔI PHỤC...' : 'KHÔI PHỤC'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {saveMessage && (
-        <div className="fixed top-20 right-4 z-[70] rounded-lg bg-green-600 px-5 py-3 text-sm font-bold text-white shadow-xl">
-          {saveMessage}
+      {feedback && (
+        <div
+          role="status"
+          className={`toast-enter fixed top-20 right-4 z-[70] flex max-w-[calc(100%-2rem)] items-center gap-3 rounded-xl px-5 py-3 text-sm font-bold text-white shadow-xl ${
+            feedback.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+          }`}
+        >
+          {feedback.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
+          <span>{feedback.message}</span>
         </div>
       )}
 
