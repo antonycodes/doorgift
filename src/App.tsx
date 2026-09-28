@@ -66,28 +66,33 @@ export default function App() {
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        setIsAdmin(false);
-        return;
-      }
-      const adminEmails = [
-  'nhanntl18402@gmail.com',
-  'loc.vt@dieuphuc.com.vn',
-  'nhannguyen.cellphones@gmail.com',
-];
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    setUser(currentUser);
 
-setIsAdmin(
-  currentUser.email !== null &&
-  adminEmails.includes(currentUser.email)
-);
-    return () => unsubscribe();
-  }, []);
+    if (!currentUser) {
+      setIsAdmin(false);
+      return;
+    }
 
-  useEffect(() => {
-    if (!user) return;
+    const adminEmails = [
+      'nhanntl18402@gmail.com',
+      'loc.vt@dieuphuc.com.vn',
+      'nhannguyen.cellphones@gmail.com',
+    ];
+
+    setIsAdmin(
+      currentUser.email !== null &&
+      adminEmails.includes(currentUser.email)
+    );
+  });
+
+  return () => unsubscribe();
+}, []);
+
+useEffect(() => {
+  if (!user) return;
+});
 
     const unsubInventory = onSnapshot(inventoryCollectionRef(), (snapshot) => {
       if (snapshot.empty) {
