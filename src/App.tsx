@@ -73,7 +73,7 @@ export default function App() {
         setIsAdmin(false);
         return;
       }
-      setIsAdmin(currentUser.email === 'nhanntl18402@gmail.com');
+      setIsAdmin(currentUser.email === 'nhanntl18402@gmail.com','loc.vt@dieuphuc.com.vn');
     });
     return () => unsubscribe();
   }, []);
