@@ -75,25 +75,36 @@ useEffect(() => {
       return;
     }
 
-    const adminEmails = [
+    useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    setUser(currentUser);
+
+    if (!currentUser) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const adminEmails: string[] = [
       'nhanntl18402@gmail.com',
       'loc.vt@dieuphuc.com.vn',
       'nhannguyen.cellphones@gmail.com',
     ];
 
+    const email = currentUser.email;
+
     setIsAdmin(
-      currentUser.email !== null &&
-      adminEmails.includes(currentUser.email)
+      email !== null && adminEmails.includes(email)
     );
   });
 
-  return () => unsubscribe();
+  return unsubscribe;
 }, []);
 
 useEffect(() => {
   if (!user) return;
-});
 
+  // xử lý khi user thay đổi
+}, [user]);
     const unsubInventory = onSnapshot(inventoryCollectionRef(), (snapshot) => {
       if (snapshot.empty) {
         if (isAdmin) saveInventoryItems(DEFAULT_INVENTORY).catch(console.error);
