@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Settings, Download, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
+import { removeBackground } from '@imgly/background-removal';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
 import {
   doc,
@@ -127,6 +128,66 @@ function optimizeGiftImage(file: File): Promise<string> {
   });
 }
 
+function loadImage(source: Blob | string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const sourceUrl = typeof source === 'string' ? source : URL.createObjectURL(source);
+
+    image.onload = () => {
+      if (typeof source !== 'string') URL.revokeObjectURL(sourceUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      if (typeof source !== 'string') URL.revokeObjectURL(sourceUrl);
+      reject(new Error('Không thể đọc ảnh đã xử lý.'));
+    };
+    image.src = sourceUrl;
+  });
+}
+
+async function composeStudioGiftImage(foreground: Blob): Promise<string> {
+  const image = await loadImage(foreground);
+  const maxDimension = 900;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext('2d');
+
+  if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
+
+  const background = context.createLinearGradient(0, 0, 0, canvas.height);
+  background.addColorStop(0, '#f8fafc');
+  background.addColorStop(1, '#e5e7eb');
+  context.fillStyle = background;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = 'rgba(15, 23, 42, 0.12)';
+  context.beginPath();
+  context.ellipse(canvas.width / 2, canvas.height * 0.84, canvas.width * 0.24, canvas.height * 0.045, 0, 0, Math.PI * 2);
+  context.fill();
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let result = canvas.toDataURL('image/webp', 0.82);
+  if (result.length > 700_000) result = canvas.toDataURL('image/webp', 0.62);
+  if (result.length > 700_000) throw new Error('Ảnh vẫn quá lớn sau khi xử lý. Vui lòng chọn ảnh khác.');
+  return result;
+}
+
+async function processGiftImage(file: File, onProgress: (progress: number) => void): Promise<string> {
+  const foreground = await removeBackground(file, {
+    model: 'isnet_quint8',
+    device: 'cpu',
+    output: { format: 'image/png' },
+    progress: (_key, current, total) => {
+      onProgress(total > 0 ? Math.min(99, Math.round((current / total) * 100)) : 0);
+    },
+  });
+
+  onProgress(100);
+  return composeStudioGiftImage(foreground);
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -142,6 +203,8 @@ export default function App() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [imageProcessingProgress, setImageProcessingProgress] = useState(0);
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
@@ -367,15 +430,27 @@ export default function App() {
       return;
     }
 
+    setIsProcessingImage(true);
+    setImageProcessingProgress(0);
+
     try {
-      const image = await optimizeGiftImage(file);
+      const image = await processGiftImage(file, setImageProcessingProgress);
       setNewItem(prev => ({ ...prev, img: image }));
-      showFeedback({ type: 'success', message: 'Đã chèn ảnh quà thành công' });
+      showFeedback({ type: 'success', message: 'Đã xóa nền và thêm nền studio' });
     } catch (error) {
-      showFeedback({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Không thể xử lý ảnh. Vui lòng thử lại.'
-      });
+      try {
+        const originalImage = await optimizeGiftImage(file);
+        setNewItem(prev => ({ ...prev, img: originalImage }));
+        showFeedback({ type: 'error', message: 'AI không xử lý được. Đã dùng ảnh gốc.' });
+      } catch (fallbackError) {
+        showFeedback({
+          type: 'error',
+          message: fallbackError instanceof Error ? fallbackError.message : 'Không thể xử lý ảnh. Vui lòng thử lại.'
+        });
+      }
+    } finally {
+      setIsProcessingImage(false);
+      setImageProcessingProgress(0);
     }
   };
 
@@ -589,9 +664,18 @@ export default function App() {
                         <X className="w-4 h-4" />
                       </button>
                     )}
-                    <label className="block text-sm font-bold text-red-600 mb-3 uppercase tracking-wider">
-                      {isNone ? 'CHÚC MAY MẮN LẦN SAU (TRƯỢT)' : item.name}
-                    </label>
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
+                        {item.img ? (
+                          <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
+                        ) : (
+                          <span className="text-2xl">{item.icon || '🎁'}</span>
+                        )}
+                      </div>
+                      <label className="block text-sm font-bold text-red-600 uppercase tracking-wider">
+                        {isNone ? 'CHÚC MAY MẮN LẦN SAU (TRƯỢT)' : item.name}
+                      </label>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {!isNone && (
@@ -678,12 +762,12 @@ export default function App() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-900">
+                        <label className={`inline-flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs font-bold text-white transition ${isProcessingImage ? 'cursor-wait opacity-60' : 'cursor-pointer hover:bg-gray-900'}`}>
                           <ImagePlus className="h-4 w-4" />
-                          CHỌN ẢNH
-                          <input type="file" accept="image/*" onChange={handleNewItemImageChange} className="hidden" />
+                          {isProcessingImage ? `ĐANG XỬ LÝ ${imageProcessingProgress}%` : 'CHỌN ẢNH'}
+                          <input type="file" accept="image/*" onChange={handleNewItemImageChange} disabled={isProcessingImage} className="hidden" />
                         </label>
-                        {newItem.img && (
+                        {newItem.img && !isProcessingImage && (
                           <button
                             type="button"
                             onClick={() => setNewItem(prev => ({ ...prev, img: '' }))}
