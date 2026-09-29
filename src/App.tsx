@@ -32,6 +32,7 @@ interface InventoryItem {
   count: number;
   img: string;
   icon?: string;
+  backgroundRemoved?: boolean;
 }
 
 interface LogEntry {
@@ -272,7 +273,7 @@ export default function App() {
   const [imageProcessingProgress, setImageProcessingProgress] = useState(0);
   const [imageProcessStatus, setImageProcessStatus] = useState<ImageProcessStatus>('idle');
   const [processingExistingItemKey, setProcessingExistingItemKey] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string; withWatermark?: boolean } | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
@@ -546,6 +547,7 @@ export default function App() {
       [key]: {
         ...prev[key],
         [field]: value,
+        ...(field === 'img' ? { backgroundRemoved: false } : {}),
       },
     }));
   };
@@ -568,6 +570,7 @@ export default function App() {
         count: newItem.count,
         img: newItem.img,
         icon: COMMON_GIFT_PRESETS.find(preset => preset.id === selectedGiftPreset)?.icon || '🎁',
+        backgroundRemoved: imageProcessStatus === 'success',
       },
     }));
     setNewItem({ id: '', name: '', count: 0, img: '' });
@@ -647,7 +650,7 @@ export default function App() {
       const processedImage = await processGiftImage(item.img, () => undefined);
       setAdminInventory(prev => ({
         ...prev,
-        [key]: { ...prev[key], img: processedImage },
+        [key]: { ...prev[key], img: processedImage, backgroundRemoved: true },
       }));
       showFeedback({ type: 'success', message: `Đã tách nền cho ${item.name}` });
     } catch (error) {
@@ -1262,7 +1265,18 @@ export default function App() {
                     <div className="mb-3 flex items-center gap-3">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gradient-to-b from-slate-50 to-white">
                         {item.img ? (
-                          <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({
+                              src: item.img,
+                              alt: item.name,
+                              withWatermark: item.backgroundRemoved === true,
+                            })}
+                            className="h-full w-full cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
+                            aria-label={`Xem preview ảnh ${item.name}`}
+                          >
+                            <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
+                          </button>
                         ) : (
                           <span className="text-2xl">{item.icon || '🎁'}</span>
                         )}
@@ -1443,7 +1457,11 @@ export default function App() {
                         {newItem.img ? (
                           <button
                             type="button"
-                            onClick={() => setPreviewImage({ src: newItem.img, alt: newItem.name || 'Ảnh quà mới' })}
+                            onClick={() => setPreviewImage({
+                              src: newItem.img,
+                              alt: newItem.name || 'Ảnh quà mới',
+                              withWatermark: imageProcessStatus === 'success',
+                            })}
                             className="relative z-10 h-full w-full cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
                             aria-label="Xem ảnh quà mới kích thước lớn"
                           >
@@ -1613,10 +1631,18 @@ export default function App() {
             className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center rounded-2xl bg-white p-3 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
+            {previewImage.withWatermark && (
+              <img
+                src="/background-removed-watermark.png"
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] rounded-xl object-cover opacity-20"
+              />
+            )}
             <img
               src={previewImage.src}
               alt={previewImage.alt}
-              className="max-h-[84vh] max-w-[86vw] object-contain"
+              className="relative z-10 max-h-[84vh] max-w-[86vw] object-contain"
             />
             <button
               type="button"
