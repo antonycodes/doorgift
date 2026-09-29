@@ -43,6 +43,7 @@ interface LogEntry {
   userEmail?: string;
   userId?: string;
   accountId?: string;
+  regionId?: RegionId;
   createdAt?: unknown;
 }
 
@@ -52,41 +53,25 @@ interface GameSettings {
 }
 
 type InitialInventorySnapshot = Record<string, number>;
+type RegionId = 'north' | 'south';
 
-const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
-  mug: {
-    name: 'Ly sứ CPS',
-    count: 5,
-    img: '/gifts/ceramic-mug.jpg',
-    icon: '☕',
-  },
-  tetBag: {
-    name: 'Túi PK tết',
-    count: 70,
-    img: '/gifts/tet-accessory-pouch.jpg',
-    icon: '🧧',
-  },
-  cottonBag: {
-    name: 'Túi bông',
-    count: 20,
-    img: '/gifts/cotton-bag.jpg',
-    icon: '🎒',
-  },
-  umbrella: {
-    name: 'Dù CPS',
-    count: 15,
-    img: '/gifts/hand-umbrella.jpg',
-    icon: '⛱️',
-  },
-  none: {
-    name: 'CHÚC BẠN MAY MẮN LẦN SAU',
-    count: 50,
-    img: '',
-    icon: '🍀',
-  },
+const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {};
+const EMPTY_INVENTORY = DEFAULT_INVENTORY;
+const FALLBACK_NONE_ITEM: InventoryItem = {
+  name: 'CHÚC BẠN MAY MẮN LẦN SAU',
+  count: 0,
+  img: '',
+  icon: '🍀',
 };
-
-const EMPTY_INVENTORY = {} as Record<GiftType, InventoryItem>;
+const DEFAULT_REGION_ID: RegionId = 'north';
+const REGION_LABELS: Record<RegionId, string> = {
+  north: 'Miền Bắc',
+  south: 'Miền Nam',
+};
+const REGION_ACCOUNTS: Record<RegionId, readonly string[]> = {
+  north: ['DOORGIFT_MB_1', 'DOORGIFT_MB_2'],
+  south: ['DOORGIFT_MN_1', 'DOORGIFT_MN_2'],
+};
 
 const COMMON_GIFT_PRESETS = [
   { id: 'accessoryPouchCps', name: 'Túi phụ kiện CPS', count: 0, img: '/gifts/accessory-pouch-cps.jpg', icon: '🎒' },
@@ -124,10 +109,16 @@ type Feedback = {
 
 type ImageProcessStatus = 'idle' | 'uploaded' | 'processing' | 'success' | 'error';
 
-const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
-const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
-const gameSettingsRef = () => doc(db, 'game', 'settings');
+const regionRef = (regionId: RegionId) => doc(db, 'gameRegions', regionId);
+const inventoryCollectionRef = (regionId: RegionId) => collection(db, 'gameRegions', regionId, 'inventory');
+const inventoryItemRef = (regionId: RegionId, key: string) => doc(db, 'gameRegions', regionId, 'inventory', key);
+const logsCollectionRef = (regionId: RegionId) => collection(db, 'gameRegions', regionId, 'logs');
 const accountNumberFromId = (accountId: string | null) => accountId?.match(/(?:^|_)(\d+)$/)?.[1] || null;
+const regionFromAccountId = (accountId: string | null): RegionId | null => {
+  if (!accountId) return null;
+  const region = (Object.keys(REGION_ACCOUNTS) as RegionId[]).find((regionId) => REGION_ACCOUNTS[regionId].includes(accountId));
+  return region || null;
+};
 
 const parseInitialInventory = (value: unknown): InitialInventorySnapshot | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -150,12 +141,12 @@ const timestampToMillis = (value: unknown): number | null => {
   return null;
 };
 
-async function saveInventoryItems(items: Record<string, InventoryItem>) {
-  const current = await getDocs(inventoryCollectionRef());
+async function saveInventoryItems(regionId: RegionId, items: Record<string, InventoryItem>) {
+  const current = await getDocs(inventoryCollectionRef(regionId));
   const desiredKeys = new Set(Object.keys(items));
 
   await Promise.all([
-    ...Object.entries(items).map(([key, item]) => setDoc(inventoryItemRef(key), item)),
+    ...Object.entries(items).map(([key, item]) => setDoc(inventoryItemRef(regionId, key), item)),
     ...current.docs
       .filter((itemDoc) => !desiredKeys.has(itemDoc.id))
       .map((itemDoc) => deleteDoc(itemDoc.ref)),
@@ -312,6 +303,12 @@ export default function App() {
   const [dashboardLogs, setDashboardLogs] = useState<LogEntry[]>([]);
   const [isLockingInitialInventory, setIsLockingInitialInventory] = useState(false);
   const [initialInventoryLockedAt, setInitialInventoryLockedAt] = useState<unknown>(null);
+  const [selectedRegion, setSelectedRegion] = useState<RegionId>(DEFAULT_REGION_ID);
+
+  const activeAccountId = accountIdFromAuthEmail(user?.email || null);
+  const accountRegion = regionFromAccountId(activeAccountId);
+  const activeRegion = accountRegion || selectedRegion;
+  const activeRegionLabel = REGION_LABELS[activeRegion];
 
   useEffect(() => {
     const adminEmails = new Set<string>([
@@ -341,13 +338,14 @@ export default function App() {
 
   useEffect(() => {
     if (!user) {
-      setInventory(DEFAULT_INVENTORY);
+      setInventory(EMPTY_INVENTORY);
       return;
     }
 
-    const unsubscribe = onSnapshot(inventoryCollectionRef(), (snapshot) => {
+    const unsubscribe = onSnapshot(inventoryCollectionRef(activeRegion), (snapshot) => {
       if (snapshot.empty) {
         setInventory(EMPTY_INVENTORY);
+        setGridItems([]);
         return;
       }
 
@@ -356,10 +354,11 @@ export default function App() {
         nextInventory[itemDoc.id] = itemDoc.data() as InventoryItem;
       });
       setInventory(nextInventory);
+      setGridItems(generateGridItems(nextInventory));
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, activeRegion]);
 
   useEffect(() => {
     if (!user) {
@@ -368,7 +367,7 @@ export default function App() {
       return;
     }
 
-    const unsubscribe = onSnapshot(gameSettingsRef(), (snapshot) => {
+    const unsubscribe = onSnapshot(regionRef(activeRegion), (snapshot) => {
       const settings = snapshot.data() || {};
       const savedOrientation = settings.layoutOrientation;
       const savedTotalCheckins = Number(settings.totalCheckins);
@@ -384,7 +383,7 @@ export default function App() {
     });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, activeRegion]);
 
   useEffect(() => {
     if (!showDashboard || !isAdmin) {
@@ -393,7 +392,7 @@ export default function App() {
     }
 
     const unsubscribe = onSnapshot(
-      query(collection(db, 'logs'), orderBy('createdAt', 'asc')),
+      query(logsCollectionRef(activeRegion), orderBy('createdAt', 'asc')),
       (snapshot) => {
         const nextLogs: LogEntry[] = [];
         snapshot.forEach((itemDoc) => nextLogs.push(itemDoc.data() as LogEntry));
@@ -403,7 +402,7 @@ export default function App() {
     );
 
     return unsubscribe;
-  }, [showDashboard, isAdmin]);
+  }, [showDashboard, isAdmin, activeRegion]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -470,6 +469,8 @@ export default function App() {
       }
     });
 
+    if (pool.length === 0) return [];
+
     pool = pool.sort(() => Math.random() - 0.5);
     const items = pool.slice(0, 9);
 
@@ -517,6 +518,7 @@ export default function App() {
       userName: user.displayName || 'Người chơi',
       userEmail: user.email || 'Ẩn danh',
       userId: user.uid,
+      regionId: activeRegion,
       ...(accountIdFromAuthEmail(user.email)
         ? { accountId: accountIdFromAuthEmail(user.email) }
         : {}),
@@ -524,7 +526,7 @@ export default function App() {
     };
 
     try {
-      const inventoryRef = inventoryItemRef(type);
+      const inventoryRef = inventoryItemRef(activeRegion, type);
 
       await runTransaction(db, async (transaction) => {
         const inventorySnapshot = await transaction.get(inventoryRef);
@@ -538,7 +540,7 @@ export default function App() {
         }
 
         transaction.update(inventoryRef, { count: latestItem.count - 1 });
-        transaction.set(doc(collection(db, 'logs')), logEntry);
+        transaction.set(doc(logsCollectionRef(activeRegion)), logEntry);
       });
     } catch (error) {
       console.error('Lỗi lưu kết quả', error);
@@ -586,6 +588,18 @@ export default function App() {
       setImageProcessStatus('idle');
     }
     setShowAdmin(!showAdmin);
+  };
+
+  const handleRegionChange = (regionId: RegionId) => {
+    setSelectedRegion(regionId);
+    setInventory(EMPTY_INVENTORY);
+    setGridItems([]);
+    setFlippedIndex(null);
+    setShowResult(false);
+    setCurrentResultType(null);
+    setInitialInventorySnapshot(null);
+    setInitialInventoryLockedAt(null);
+    setShowAdmin(false);
   };
 
   const handleAdminChange = (
@@ -739,17 +753,18 @@ export default function App() {
     const nextLuckCount = adminTotalCheckins > 0
       ? Math.max(0, adminTotalCheckins - giftsToIssue)
       : adminInventory.none?.count || 0;
-    const nextInventory = adminInventory.none
-      ? {
-          ...adminInventory,
-          none: { ...adminInventory.none, count: nextLuckCount },
-        }
-      : adminInventory;
+    const nextInventory = {
+      ...adminInventory,
+      none: {
+        ...(adminInventory.none || FALLBACK_NONE_ITEM),
+        count: nextLuckCount,
+      },
+    };
 
     setIsSaving(true);
     try {
-      await saveInventoryItems(nextInventory);
-      await setDoc(gameSettingsRef(), {
+      await saveInventoryItems(activeRegion, nextInventory);
+      await setDoc(regionRef(activeRegion), {
         layoutOrientation: adminLayoutOrientation,
         totalCheckins: adminTotalCheckins,
         giftIssueRate: adminGiftIssueRate,
@@ -779,11 +794,11 @@ export default function App() {
     setIsLockingInitialInventory(true);
     try {
       await runTransaction(db, async (transaction) => {
-        const settingsSnapshot = await transaction.get(gameSettingsRef());
+        const settingsSnapshot = await transaction.get(regionRef(activeRegion));
         const savedInitialInventory = parseInitialInventory(settingsSnapshot.data()?.initialInventory);
         if (savedInitialInventory) throw new Error('Số quà ban đầu đã được chốt.');
 
-        transaction.set(gameSettingsRef(), {
+        transaction.set(regionRef(activeRegion), {
           initialInventory: nextInitialInventory,
           initialInventoryLockedAt: serverTimestamp(),
         }, { merge: true });
@@ -806,7 +821,7 @@ export default function App() {
     if (!isAdmin) return;
 
     try {
-      const snapshot = await getDocs(query(collection(db, 'logs'), orderBy('createdAt', 'asc')));
+      const snapshot = await getDocs(query(logsCollectionRef(activeRegion), orderBy('createdAt', 'asc')));
       const logs: LogEntry[] = [];
       snapshot.forEach((itemDoc) => logs.push(itemDoc.data() as LogEntry));
 
@@ -838,7 +853,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `nhat_ky_lat_o_${new Date().getTime()}.csv`);
+      link.setAttribute('download', `nhat_ky_lat_o_${activeRegion}_${new Date().getTime()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -852,15 +867,15 @@ export default function App() {
     if (!isAdmin || isSaving || isResetting) return;
     setIsResetting(true);
     try {
-      await saveInventoryItems(EMPTY_INVENTORY);
-      await setDoc(gameSettingsRef(), {
+      await saveInventoryItems(activeRegion, EMPTY_INVENTORY);
+      await setDoc(regionRef(activeRegion), {
         layoutOrientation: 'vertical',
         ...DEFAULT_GAME_SETTINGS,
         initialInventory: null,
         initialInventoryLockedAt: null,
       }, { merge: true });
 
-      const snapshot = await getDocs(collection(db, 'logs'));
+      const snapshot = await getDocs(logsCollectionRef(activeRegion));
       const deletePromises = snapshot.docs.map((itemDoc) => deleteDoc(itemDoc.ref));
       await Promise.all(deletePromises);
 
@@ -898,7 +913,6 @@ export default function App() {
     ...(adminInventory.none ? ['none'] : []),
   ];
   const displayOrientation: LayoutOrientation = isPhoneViewport ? 'vertical' : layoutOrientation;
-  const activeAccountId = accountIdFromAuthEmail(user?.email || null) || accountId || null;
   const accountNumber = accountNumberFromId(activeAccountId);
   const dashboardCurrentTotal = Object.values(inventory).reduce((total, item) => total + Math.max(0, Math.floor(item.count)), 0);
   const dashboardInitialTotal = initialInventorySnapshot
@@ -915,7 +929,7 @@ export default function App() {
   const dashboardProgress = dashboardInitialTotal && dashboardInitialTotal > 0
     ? Math.min(100, Math.round((dashboardDistributedTotal / dashboardInitialTotal) * 100))
     : 0;
-  const dashboardAccountStats = ['DOORGIFT_1', 'DOORGIFT_2'].map((id) => ({
+  const dashboardAccountStats = REGION_ACCOUNTS[activeRegion].map((id) => ({
     id,
     count: activeDashboardLogs.filter((log) => log.accountId === id).length,
   }));
@@ -991,7 +1005,7 @@ export default function App() {
                     type="text"
                     value={accountId}
                     onChange={(event) => setAccountId(event.target.value.toUpperCase())}
-                    placeholder="Ví dụ: DOORGIFT_1"
+                    placeholder="Ví dụ: DOORGIFT_MB_1"
                     autoComplete="username"
                     autoCapitalize="characters"
                     spellCheck={false}
@@ -1058,6 +1072,9 @@ export default function App() {
                   : 'vertical-logo object-contain'
                 }
               />
+              <div className="mx-auto mb-2 inline-flex items-center rounded-full border border-red-100 bg-white/90 px-4 py-1 text-xs font-black uppercase tracking-[0.18em] text-red-700 shadow-sm">
+                {activeRegionLabel}
+              </div>
               <div
                 className={`mx-auto w-full select-none ${displayOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
                 onContextMenu={(event) => event.preventDefault()}
@@ -1081,7 +1098,7 @@ export default function App() {
             }`}>
               {gridItems.map((type, index) => {
                 const isFlipped = flippedIndex === index;
-                const item = inventory[type] || DEFAULT_INVENTORY.none;
+                const item = inventory[type] || FALLBACK_NONE_ITEM;
 
                 return (
                   <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
@@ -1164,6 +1181,7 @@ export default function App() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-red-600">Theo dõi realtime</p>
                 <h2 className="mt-1 text-2xl font-black text-gray-900">Dashboard phát quà</h2>
+                <p className="mt-1 text-sm font-bold text-red-700">{activeRegionLabel}</p>
                 <p className="mt-1 text-sm text-gray-500">Tổng lượt phát đã bao gồm cả “Chúc bạn may mắn lần sau”.</p>
               </div>
               <button
@@ -1275,6 +1293,22 @@ export default function App() {
               </div>
 
               <div className="space-y-6">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <label className="block text-sm font-bold text-blue-800" htmlFor="admin-region">
+                  Miền đang quản lý
+                </label>
+                <select
+                  id="admin-region"
+                  value={activeRegion}
+                  onChange={(event) => handleRegionChange(event.target.value as RegionId)}
+                  className="mt-3 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {(Object.keys(REGION_LABELS) as RegionId[]).map((regionId) => (
+                    <option key={regionId} value={regionId}>{REGION_LABELS[regionId]}</option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-blue-700">Đổi miền sẽ tải kho và dữ liệu riêng của miền đó.</p>
+              </div>
               <div className="rounded-xl border border-red-100 bg-red-50 p-4">
                 <label className="block text-sm font-bold text-red-700">Bố cục</label>
                 <div className="mt-3 grid grid-cols-2 gap-2">

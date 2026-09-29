@@ -11,10 +11,17 @@ service cloud.firestore {
     //   - email: string (required) - User's email address
     //   - role: string (required) - User's role ('admin' or 'user')
     //
-    // Collection: game
-    // Document ID: inventory
+    // Collection: gameRegions
+    // Document ID: north | south
     // Fields:
-    //   - items: string (required) - JSON stringified map of InventoryItem objects
+    //   - layoutOrientation: string (optional) - vertical or horizontal
+    //   - totalCheckins: int (optional) - configured check-in total
+    //   - giftIssueRate: number (optional) - configured gift issue percentage
+    //   - initialInventory: map (optional) - locked starting inventory snapshot
+    //   - initialInventoryLockedAt: timestamp or null (optional)
+    // Subcollections:
+    //   - inventory/{itemId}: gift inventory item
+    //   - logs/{logId}: append-only play log
     //
     // Collection: logs
     // Document ID: {logId}
@@ -45,6 +52,24 @@ service cloud.firestore {
           "nhannguyen.cellphones@gmail.com"
         ] &&
         request.auth.token.email_verified == true;
+    }
+
+    function isKnownRegion(regionId) {
+      return regionId in ['north', 'south'];
+    }
+
+    function assignedRegion() {
+      return request.auth.token.email in [
+        'doorgift_mb_1@vhws.local',
+        'doorgift_mb_2@vhws.local'
+      ] ? 'north' : request.auth.token.email in [
+        'doorgift_mn_1@vhws.local',
+        'doorgift_mn_2@vhws.local'
+      ] ? 'south' : '';
+    }
+
+    function canAccessRegion(regionId) {
+      return isAdmin() || (isAuthenticated() && assignedRegion() == regionId);
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -82,7 +107,7 @@ service cloud.firestore {
     }
 
     function isValidLogEntry() {
-      return hasOnlyAllowedFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'accountId', 'createdAt']) &&
+      return hasOnlyAllowedFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'accountId', 'regionId', 'createdAt']) &&
              hasRequiredFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'createdAt']) &&
              request.resource.data.timestamp is string &&
              request.resource.data.result is string &&
@@ -91,7 +116,17 @@ service cloud.firestore {
              request.resource.data.userEmail is string &&
              request.resource.data.userId is string &&
              (!request.resource.data.keys().hasAny(['accountId']) || request.resource.data.accountId is string) &&
+             (!request.resource.data.keys().hasAny(['regionId']) || request.resource.data.regionId in ['north', 'south']) &&
              request.resource.data.createdAt is timestamp;
+    }
+
+    function isValidRegionSettings() {
+      return hasOnlyAllowedFields(['layoutOrientation', 'totalCheckins', 'giftIssueRate', 'initialInventory', 'initialInventoryLockedAt']) &&
+             (!request.resource.data.keys().hasAny(['layoutOrientation']) || request.resource.data.layoutOrientation in ['vertical', 'horizontal']) &&
+             (!request.resource.data.keys().hasAny(['totalCheckins']) || (request.resource.data.totalCheckins is int && request.resource.data.totalCheckins >= 0)) &&
+             (!request.resource.data.keys().hasAny(['giftIssueRate']) || (request.resource.data.giftIssueRate is number && request.resource.data.giftIssueRate >= 0 && request.resource.data.giftIssueRate <= 100)) &&
+             (!request.resource.data.keys().hasAny(['initialInventory']) || request.resource.data.initialInventory == null || request.resource.data.initialInventory is map) &&
+             (!request.resource.data.keys().hasAny(['initialInventoryLockedAt']) || request.resource.data.initialInventoryLockedAt == null || request.resource.data.initialInventoryLockedAt is timestamp);
     }
 
     // ===============================================================
@@ -120,6 +155,31 @@ service cloud.firestore {
     match /game/settings {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    match /gameRegions/{regionId} {
+      allow read: if isKnownRegion(regionId) && canAccessRegion(regionId);
+      allow create, update: if isKnownRegion(regionId) && isAdmin() && isValidRegionSettings();
+      allow delete: if false;
+
+      match /inventory/{itemId} {
+        allow read: if isKnownRegion(regionId) && canAccessRegion(regionId);
+        allow create: if isKnownRegion(regionId) && isAdmin() && isValidInventoryItem();
+        allow update: if (isKnownRegion(regionId) && isAdmin() && isValidInventoryItem()) ||
+                      (isKnownRegion(regionId) && isAuthenticated() && assignedRegion() == regionId && isPlayerDecrement());
+        allow delete: if isKnownRegion(regionId) && isAdmin();
+      }
+
+      match /logs/{logId} {
+        allow read: if isKnownRegion(regionId) && isAdmin();
+        allow create: if isKnownRegion(regionId) && canAccessRegion(regionId) &&
+                      isValidLogEntry() &&
+                      request.resource.data.regionId == regionId &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.userEmail == request.auth.token.email;
+        allow update: if false;
+        allow delete: if isKnownRegion(regionId) && isAdmin();
+      }
     }
 
     match /logs/{logId} {
