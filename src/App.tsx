@@ -354,7 +354,6 @@ export default function App() {
         nextInventory[itemDoc.id] = itemDoc.data() as InventoryItem;
       });
       setInventory(nextInventory);
-      setGridItems(generateGridItems(nextInventory));
     });
 
     return unsubscribe;
@@ -421,6 +420,12 @@ export default function App() {
 
   useEffect(() => {
     if (!gameActive || flippedIndex !== null || showResult) return;
+
+    const hasAvailableGift = Object.values(inventory).some((item) => item.count > 0);
+    if (gridItems.length === 0 && hasAvailableGift) {
+      setGridItems(generateGridItems(inventory));
+      return;
+    }
 
     const visibleCounts = gridItems.reduce<Record<string, number>>((counts, type) => {
       counts[type] = (counts[type] || 0) + 1;
