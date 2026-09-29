@@ -212,6 +212,7 @@ export default function App() {
   const [imageProcessingProgress, setImageProcessingProgress] = useState(0);
   const [imageProcessStatus, setImageProcessStatus] = useState<ImageProcessStatus>('idle');
   const [processingExistingItemKey, setProcessingExistingItemKey] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
@@ -257,6 +258,17 @@ export default function App() {
 
     return unsubscribe;
   }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!previewImage) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewImage(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewImage]);
 
   useEffect(() => {
     initGame(inventory);
@@ -836,7 +848,14 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-gradient-to-b from-slate-50 to-white ${imageProcessStatus === 'success' ? 'border-green-400' : imageProcessStatus === 'error' ? 'border-red-400' : 'border-gray-300'}`}>
                         {newItem.img ? (
-                          <img src={newItem.img} alt="Xem trước quà mới" className="h-full w-full object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage({ src: newItem.img, alt: newItem.name || 'Ảnh quà mới' })}
+                            className="h-full w-full cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
+                            aria-label="Xem ảnh quà mới kích thước lớn"
+                          >
+                            <img src={newItem.img} alt="Xem trước quà mới" className="h-full w-full object-contain" />
+                          </button>
                         ) : (
                           <ImagePlus className="h-7 w-7 text-gray-400" />
                         )}
@@ -935,6 +954,35 @@ export default function App() {
         >
           {feedback.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
           <span>{feedback.message}</span>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xem ảnh kích thước lớn"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center rounded-2xl bg-white p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={previewImage.src}
+              alt={previewImage.alt}
+              className="max-h-[84vh] max-w-[86vw] object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+              aria-label="Đóng preview ảnh"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       )}
 
