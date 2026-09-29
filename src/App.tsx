@@ -46,25 +46,25 @@ const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
   mug: {
     name: 'Ly sứ CPS',
     count: 5,
-    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635922/vghkyofaxoqm8ds9gper.png',
+    img: '/gifts/ceramic-mug.jpg',
     icon: '☕',
   },
   tetBag: {
     name: 'Túi PK tết',
     count: 70,
-    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635917/qryximejefd33gnitcee.png',
+    img: '/gifts/tet-accessory-pouch.jpg',
     icon: '🧧',
   },
   cottonBag: {
     name: 'Túi bông',
     count: 20,
-    img: 'https://res.cloudinary.com/antony12/image/upload/v1788573138/T%C3%BAi_b%C3%B4ng_sm3ccs.png',
+    img: '/gifts/cotton-bag.jpg',
     icon: '🎒',
   },
   umbrella: {
     name: 'Dù CPS',
     count: 15,
-    img: 'https://res.cloudinary.com/antony12/image/upload/v1787635907/xq3mp9rsbraffi2e653k.png',
+    img: '/gifts/hand-umbrella.jpg',
     icon: '⛱️',
   },
   none: {
@@ -719,75 +719,97 @@ export default function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <main className={`flex-grow ${layoutOrientation === 'horizontal'
-        ? 'flex flex-col items-center justify-center p-6 md:grid md:grid-cols-2 md:gap-8'
-        : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
+      <main className={`flex-grow ${!user
+        ? 'flex min-h-[100dvh] w-full items-center justify-center p-6'
+        : layoutOrientation === 'horizontal'
+          ? 'flex flex-col items-center justify-center p-6 md:grid md:grid-cols-2 md:gap-8'
+          : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
       }`}>
-        <div className={`text-center ${layoutOrientation === 'horizontal'
-          ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
-          : 'vertical-stage mb-2 w-full max-w-[42rem]'
-        }`}>
-          <img
-            src="/cellphones-logo.png"
-            alt="CellphoneS"
-            draggable={false}
-            className={layoutOrientation === 'horizontal'
-              ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
-              : 'vertical-logo object-contain'
-            }
-          />
-          <div
-            className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
-            onContextMenu={(event) => event.preventDefault()}
-            onDragStart={(event) => event.preventDefault()}
-          >
-            <img
-              src="/typo-lat-o-nhan-qua.png"
-              alt="LẬT Ô NHẬN QUÀ"
-              draggable={false}
-              className={layoutOrientation === 'horizontal'
-                ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-auto md:max-h-[30rem]'
-                : 'mx-auto h-auto w-full object-contain'
-              }
-            />
+        {!user ? (
+          <div className="flex min-h-[100dvh] w-full items-center justify-center px-6 text-center">
+            <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white/95 p-8 shadow-2xl shadow-red-900/10 backdrop-blur-sm md:p-10">
+              <img src="/cellphones-logo.png" alt="CellphoneS" className="mx-auto mb-8 h-12 w-auto object-contain" draggable={false} />
+              <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
+              <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
+              <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
+              <button
+                type="button"
+                onClick={() => void signInWithGoogle()}
+                className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              >
+                ĐĂNG NHẬP GOOGLE
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div className={`grid aspect-square w-full grid-cols-3 ${layoutOrientation === 'horizontal'
-          ? 'max-w-md gap-3 md:w-full md:max-w-3xl md:justify-self-center'
-          : 'vertical-stage gap-3 md:gap-5'
-        }`}>
-          {gridItems.map((type, index) => {
-            const isFlipped = flippedIndex === index;
-            const item = inventory[type] || DEFAULT_INVENTORY.none;
-
-            return (
-              <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
-                <div className="flip-card-inner" onClick={() => void handleFlip(index, type)}>
-                  <div
-                    className="flip-card-front flex items-center justify-center"
-                    style={{
-                      backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774162513/Find_xa0rni.jpg')",
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                    }}
-                  ></div>
-                  <div className="flip-card-back flex-col">
-                    {item.img ? (
-                      <img src={item.img} alt={item.name} className="gift-image" />
-                    ) : (
-                      <>
-                        <span className="text-4xl mb-2">{item.icon}</span>
-                        <span className="text-[10px] font-bold uppercase leading-tight px-2">{item.name}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
+        ) : (
+          <>
+            <div className={`text-center ${layoutOrientation === 'horizontal'
+              ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
+              : 'vertical-stage mb-2 w-full max-w-[42rem]'
+            }`}>
+              <img
+                src="/cellphones-logo.png"
+                alt="CellphoneS"
+                draggable={false}
+                className={layoutOrientation === 'horizontal'
+                  ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
+                  : 'vertical-logo object-contain'
+                }
+              />
+              <div
+                className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
+                onContextMenu={(event) => event.preventDefault()}
+                onDragStart={(event) => event.preventDefault()}
+              >
+                <img
+                  src="/typo-lat-o-nhan-qua.png"
+                  alt="LẬT Ô NHẬN QUÀ"
+                  draggable={false}
+                  className={layoutOrientation === 'horizontal'
+                    ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-auto md:max-h-[30rem]'
+                    : 'mx-auto h-auto w-full object-contain'
+                  }
+                />
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            <div className={`grid aspect-square w-full grid-cols-3 ${layoutOrientation === 'horizontal'
+              ? 'max-w-md gap-3 md:w-full md:max-w-3xl md:justify-self-center'
+              : 'vertical-stage gap-3 md:gap-5'
+            }`}>
+              {gridItems.map((type, index) => {
+                const isFlipped = flippedIndex === index;
+                const item = inventory[type] || DEFAULT_INVENTORY.none;
+
+                return (
+                  <div key={index} className={`flip-card ${isFlipped ? 'flipped' : ''}`}>
+                    <div className="flip-card-inner" onClick={() => void handleFlip(index, type)}>
+                      <div
+                        className="flip-card-front flex items-center justify-center"
+                        style={{
+                          backgroundImage: "url('https://res.cloudinary.com/antony12/image/upload/v1774162513/Find_xa0rni.jpg')",
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
+                        }}
+                      ></div>
+                      <div className="flip-card-back flex-col">
+                        {item.img ? (
+                          <img src={item.img} alt={item.name} className="gift-image" />
+                        ) : (
+                          <>
+                            <span className="text-4xl mb-2">{item.icon}</span>
+                            <span className="text-[10px] font-bold uppercase leading-tight px-2">{item.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </main>
 
       <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20">
