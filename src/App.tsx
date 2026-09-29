@@ -402,6 +402,21 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!gameActive || flippedIndex !== null || showResult) return;
+
+    const visibleCounts = gridItems.reduce<Record<string, number>>((counts, type) => {
+      counts[type] = (counts[type] || 0) + 1;
+      return counts;
+    }, {});
+
+    const hasStaleGift = Object.entries(visibleCounts).some(([type, visibleCount]) => (
+      type !== 'none' && visibleCount > Math.max(0, Math.floor(inventory[type]?.count || 0))
+    ));
+
+    if (hasStaleGift) setGridItems(generateGridItems(inventory));
+  }, [gameActive, flippedIndex, showResult, gridItems, inventory]);
+
+  useEffect(() => {
     return () => {
       if (feedbackTimerRef.current !== null) {
         window.clearTimeout(feedbackTimerRef.current);
@@ -464,10 +479,17 @@ export default function App() {
     if (!gameActive || flippedIndex !== null) return;
 
     const selectedItem = inventory[type];
-    if (!selectedItem) return;
+    if (!selectedItem || selectedItem.count <= 0) {
+      if (selectedItem) {
+        setGridItems(generateGridItems({
+          ...inventory,
+          [type]: { ...selectedItem, count: 0 },
+        }));
+      }
+      return;
+    }
 
     setGameActive(false);
-    setFlippedIndex(index);
 
     const logEntry = {
       timestamp: new Date().toLocaleString('vi-VN'),
@@ -503,10 +525,20 @@ export default function App() {
       console.error('Lỗi lưu kết quả', error);
       setGameActive(true);
       setFlippedIndex(null);
-      alert(error instanceof Error ? error.message : 'Không thể lưu kết quả. Vui lòng thử lại.');
+      const isOutOfStockError = error instanceof Error && /không còn trong kho|vừa hết trong kho/i.test(error.message);
+      if (isOutOfStockError) {
+        setGridItems(generateGridItems({
+          ...inventory,
+          [type]: { ...selectedItem, count: 0 },
+        }));
+        showFeedback({ type: 'error', message: 'Món quà này đã hết và đã được gỡ khỏi lượt chơi.' });
+      } else {
+        alert(error instanceof Error ? error.message : 'Không thể lưu kết quả. Vui lòng thử lại.');
+      }
       return;
     }
 
+    setFlippedIndex(index);
     window.setTimeout(() => {
       setCurrentResultType(type);
       setShowResult(true);
