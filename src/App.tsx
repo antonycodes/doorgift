@@ -724,7 +724,7 @@ export default function App() {
         : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
       }`}>
         <div className={`text-center ${layoutOrientation === 'horizontal'
-          ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-left'
+          ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
           : 'vertical-stage mb-2 w-full max-w-[42rem]'
         }`}>
           <img
@@ -737,7 +737,7 @@ export default function App() {
             }
           />
           <div
-            className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : 'max-w-[42rem]'}`}
+            className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
             onContextMenu={(event) => event.preventDefault()}
             onDragStart={(event) => event.preventDefault()}
           >
@@ -746,7 +746,7 @@ export default function App() {
               alt="LẬT Ô NHẬN QUÀ"
               draggable={false}
               className={layoutOrientation === 'horizontal'
-                ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-0 md:max-h-[30rem]'
+                ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-auto md:max-h-[30rem]'
                 : 'mx-auto h-auto w-full object-contain'
               }
             />
