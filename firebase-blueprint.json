@@ -33,6 +33,7 @@
         "userName": { "type": "string" },
         "userEmail": { "type": "string" },
         "userId": { "type": "string" },
+        "accountId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["timestamp", "result", "type", "userName", "userEmail", "userId", "createdAt"]

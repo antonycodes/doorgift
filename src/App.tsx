@@ -1,13 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
-import { db, auth, signInWithGoogle, logOut } from './firebase';
+import {
+  auth,
+  db,
+  accountIdFromAuthEmail,
+  normalizeAccountId,
+  signInWithAccount,
+  signInWithGoogle,
+  logOut,
+} from './firebase';
 import {
   doc,
   onSnapshot,
   setDoc,
   collection,
-  addDoc,
   getDocs,
   deleteDoc,
   serverTimestamp,
@@ -34,6 +41,7 @@ interface LogEntry {
   userName?: string;
   userEmail?: string;
   userId?: string;
+  accountId?: string;
   createdAt?: unknown;
 }
 
@@ -237,6 +245,10 @@ export default function App() {
   const [adminGiftIssueRate, setAdminGiftIssueRate] = useState(DEFAULT_GAME_SETTINGS.giftIssueRate);
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
   const [selectedGiftPreset, setSelectedGiftPreset] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     const adminEmails = new Set<string>([
@@ -400,7 +412,10 @@ export default function App() {
       type: type === 'none' ? 'Trượt' : 'Trúng quà',
       userName: user.displayName || 'Người chơi',
       userEmail: user.email || 'Ẩn danh',
-      userId: user.uid || 'unknown',
+      userId: user.uid,
+      ...(accountIdFromAuthEmail(user.email)
+        ? { accountId: accountIdFromAuthEmail(user.email) }
+        : {}),
       createdAt: serverTimestamp(),
     };
 
@@ -419,9 +434,8 @@ export default function App() {
         }
 
         transaction.update(inventoryRef, { count: latestItem.count - 1 });
+        transaction.set(doc(collection(db, 'logs')), logEntry);
       });
-
-      await addDoc(collection(db, 'logs'), logEntry);
     } catch (error) {
       console.error('Lỗi lưu kết quả', error);
       setGameActive(true);
@@ -656,10 +670,10 @@ export default function App() {
       });
 
       csvContent += '\nCHI TIẾT LƯỢT CHƠI,,,,,\n';
-      csvContent += 'STT,Thời gian,Tên người chơi,Email,Kết quả,Loại\n';
+      csvContent += 'STT,Thời gian,Tên người chơi,Tài khoản,Email,Kết quả,Loại\n';
 
       logs.forEach((log, index) => {
-        csvContent += `${index + 1},${log.timestamp},"${log.userName || 'Người chơi'}","${log.userEmail || 'Ẩn danh'}","${log.result}",${log.type}\n`;
+        csvContent += `${index + 1},${log.timestamp},"${log.userName || 'Người chơi'}","${log.accountId || ''}","${log.userEmail || 'Ẩn danh'}","${log.result}",${log.type}\n`;
       });
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -723,6 +737,35 @@ export default function App() {
   ];
   const displayOrientation: LayoutOrientation = isPhoneViewport ? 'vertical' : layoutOrientation;
 
+  const handleAccountLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedAccountId = normalizeAccountId(accountId);
+
+    if (!normalizedAccountId || !accountPassword) {
+      setLoginError('Vui lòng nhập đầy đủ tài khoản và mật khẩu.');
+      return;
+    }
+
+    setIsSigningIn(true);
+    setLoginError(null);
+
+    try {
+      await signInWithAccount(normalizedAccountId, accountPassword);
+      setAccountPassword('');
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
+      if (code === 'auth/too-many-requests') {
+        setLoginError('Có quá nhiều lần thử. Vui lòng đợi rồi thử lại.');
+      } else if (code === 'auth/operation-not-allowed') {
+        setLoginError('Firebase chưa bật đăng nhập bằng Email/Password.');
+      } else {
+        setLoginError('Tài khoản hoặc mật khẩu không đúng.');
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col font-sans"
@@ -755,12 +798,52 @@ export default function App() {
                 <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
                 <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
                 <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
+                <form onSubmit={(event) => void handleAccountLogin(event)} className="mt-8 space-y-3 text-left">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-600" htmlFor="account-id">
+                    Tài khoản vận hành
+                  </label>
+                  <input
+                    id="account-id"
+                    type="text"
+                    value={accountId}
+                    onChange={(event) => setAccountId(event.target.value.toUpperCase())}
+                    placeholder="Ví dụ: DOORGIFT_1"
+                    autoComplete="username"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold uppercase outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                  />
+                  <label className="block text-xs font-bold uppercase tracking-wide text-gray-600" htmlFor="account-password">
+                    Mật khẩu
+                  </label>
+                  <input
+                    id="account-password"
+                    type="password"
+                    value={accountPassword}
+                    onChange={(event) => setAccountPassword(event.target.value)}
+                    autoComplete="current-password"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                  />
+                  {loginError && <p className="text-sm font-semibold text-red-600" role="alert">{loginError}</p>}
+                  <button
+                    type="submit"
+                    disabled={isSigningIn}
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  >
+                    {isSigningIn ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}
+                  </button>
+                </form>
+                <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  <span>Admin</span>
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
                 <button
                   type="button"
                   onClick={() => void signInWithGoogle()}
-                  className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                 >
-                  ĐĂNG NHẬP GOOGLE
+                  ĐĂNG NHẬP ADMIN BẰNG GOOGLE
                 </button>
               </div>
             </div>
