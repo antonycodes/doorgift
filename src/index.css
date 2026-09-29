@@ -6,17 +6,14 @@
 }
 
 .vertical-logo {
-  position: absolute;
-  top: 1.5rem;
-  left: 1.5rem;
+  display: block;
+  margin: 0 auto 1.25rem;
   height: 2.25rem;
   width: auto;
 }
 
 @media (min-width: 768px) {
   .vertical-logo {
-    top: clamp(4rem, calc(3.5rem + 4.8vh), 7.5rem);
-    left: 3.5rem;
     height: 4rem;
   }
 }

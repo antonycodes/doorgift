@@ -210,6 +210,9 @@ export default function App() {
   const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(DEFAULT_INVENTORY);
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
   const [layoutOrientation, setLayoutOrientation] = useState<LayoutOrientation>('vertical');
+  const [isPhoneViewport, setIsPhoneViewport] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  ));
   const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_GAME_SETTINGS);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(true);
@@ -249,6 +252,16 @@ export default function App() {
     });
 
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const phoneMediaQuery = window.matchMedia('(max-width: 767px)');
+    const updatePhoneViewport = () => setIsPhoneViewport(phoneMediaQuery.matches);
+
+    updatePhoneViewport();
+    phoneMediaQuery.addEventListener('change', updatePhoneViewport);
+
+    return () => phoneMediaQuery.removeEventListener('change', updatePhoneViewport);
   }, []);
 
   useEffect(() => {
@@ -708,6 +721,7 @@ export default function App() {
     ...Object.keys(adminInventory).filter((key) => key !== 'none'),
     ...(adminInventory.none ? ['none'] : []),
   ];
+  const displayOrientation: LayoutOrientation = isPhoneViewport ? 'vertical' : layoutOrientation;
 
   return (
     <div
@@ -721,9 +735,9 @@ export default function App() {
     >
       <main className={`flex-grow ${!user
         ? 'flex min-h-[100dvh] w-full items-center justify-center p-6'
-        : layoutOrientation === 'horizontal'
+        : displayOrientation === 'horizontal'
           ? 'flex flex-col items-center justify-center p-6 md:grid md:grid-cols-2 md:gap-8'
-          : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
+          : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-6 pt-20 md:pb-24'
       }`}>
         {!user ? (
           <div className="grid w-full max-w-6xl items-center gap-10 px-6 md:grid-cols-2 md:gap-16">
@@ -753,7 +767,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            <div className={`text-center ${layoutOrientation === 'horizontal'
+            <div className={`text-center ${displayOrientation === 'horizontal'
               ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
               : 'vertical-stage mb-2 w-full max-w-[42rem]'
             }`}>
@@ -761,13 +775,13 @@ export default function App() {
                 src="/cellphones-logo.png"
                 alt="CellphoneS"
                 draggable={false}
-                className={layoutOrientation === 'horizontal'
+                className={displayOrientation === 'horizontal'
                   ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
                   : 'vertical-logo object-contain'
                 }
               />
               <div
-                className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
+                className={`mx-auto w-full select-none ${displayOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
                 onContextMenu={(event) => event.preventDefault()}
                 onDragStart={(event) => event.preventDefault()}
               >
@@ -775,7 +789,7 @@ export default function App() {
                   src="/typo-lat-o-nhan-qua.png"
                   alt="LẬT Ô NHẬN QUÀ"
                   draggable={false}
-                  className={layoutOrientation === 'horizontal'
+                  className={displayOrientation === 'horizontal'
                     ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-auto md:max-h-[30rem]'
                     : 'mx-auto h-auto w-full object-contain'
                   }
@@ -783,7 +797,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`grid aspect-square w-full grid-cols-3 ${layoutOrientation === 'horizontal'
+            <div className={`grid aspect-square w-full grid-cols-3 ${displayOrientation === 'horizontal'
               ? 'max-w-md gap-3 md:w-full md:max-w-3xl md:justify-self-center'
               : 'vertical-stage gap-3 md:gap-5'
             }`}>
@@ -823,7 +837,7 @@ export default function App() {
       </main>
 
       {user && (
-        <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20">
+        <div className="w-fit self-end mr-4 mb-4 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20 md:fixed md:bottom-4 md:right-4 md:z-40 md:mr-0 md:mb-0">
           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20" title={user.email || ''}>
             {user.photoURL ? (
               <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
