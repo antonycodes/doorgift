@@ -726,19 +726,29 @@ export default function App() {
           : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
       }`}>
         {!user ? (
-          <div className="flex min-h-[100dvh] w-full items-center justify-center px-6 text-center">
-            <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white/95 p-8 shadow-2xl shadow-red-900/10 backdrop-blur-sm md:p-10">
-              <img src="/cellphones-logo.png" alt="CellphoneS" className="mx-auto mb-8 h-12 w-auto object-contain" draggable={false} />
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
-              <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
-              <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
-              <button
-                type="button"
-                onClick={() => void signInWithGoogle()}
-                className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              >
-                ĐĂNG NHẬP GOOGLE
-              </button>
+          <div className="grid w-full max-w-6xl items-center gap-10 px-6 md:grid-cols-2 md:gap-16">
+            <div className="flex items-center justify-center">
+              <img
+                src="/typo-lat-o-nhan-qua.png"
+                alt="LẬT Ô NHẬN QUÀ"
+                draggable={false}
+                className="h-auto w-full max-w-xl object-contain"
+              />
+            </div>
+            <div className="flex justify-center">
+              <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white/95 p-8 text-center shadow-2xl shadow-red-900/10 backdrop-blur-sm md:p-10">
+                <img src="/cellphones-logo.png" alt="CellphoneS" className="mx-auto mb-8 h-12 w-auto object-contain" draggable={false} />
+                <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
+                <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
+                <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
+                <button
+                  type="button"
+                  onClick={() => void signInWithGoogle()}
+                  className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                  ĐĂNG NHẬP GOOGLE
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -812,49 +822,37 @@ export default function App() {
         )}
       </main>
 
-      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20">
-        {!user ? (
-          <button
-            type="button"
-            onClick={() => void signInWithGoogle()}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-transparent p-0 transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white"
-            title="Đăng nhập"
-            aria-label="Đăng nhập"
-          >
-            <img src="/login-icon.png" alt="" className="h-full w-full object-contain" draggable={false} />
-          </button>
-        ) : (
-          <>
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20" title={user.email || ''}>
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="text-lg font-bold">{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
-              )}
-            </div>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={toggleAdmin}
-                className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
-                title="Cài đặt"
-                aria-label="Cài đặt"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
+      {user && (
+        <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20">
+          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20" title={user.email || ''}>
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="text-lg font-bold">{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
             )}
+          </div>
+          {isAdmin && (
             <button
               type="button"
-              onClick={() => void logOut()}
+              onClick={toggleAdmin}
               className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
-              title="Đăng xuất"
-              aria-label="Đăng xuất"
+              title="Cài đặt"
+              aria-label="Cài đặt"
             >
-              <LogOut className="h-5 w-5" />
+              <Settings className="h-5 w-5" />
             </button>
-          </>
-        )}
-      </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void logOut()}
+            className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       {showAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
