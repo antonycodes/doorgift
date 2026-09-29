@@ -63,13 +63,15 @@ service cloud.firestore {
     }
 
     function isValidInventoryItem() {
-      return hasOnlyAllowedFields(['name', 'count', 'img', 'icon']) &&
+      return hasOnlyAllowedFields(['name', 'count', 'img', 'icon', 'backgroundRemoved']) &&
              hasRequiredFields(['name', 'count', 'img', 'icon']) &&
              request.resource.data.name is string &&
              request.resource.data.count is int &&
              request.resource.data.count >= 0 &&
              request.resource.data.img is string &&
-             request.resource.data.icon is string;
+             request.resource.data.icon is string &&
+             (!request.resource.data.keys().hasAny(['backgroundRemoved']) ||
+              request.resource.data.backgroundRemoved is bool);
     }
 
     function isPlayerDecrement() {
