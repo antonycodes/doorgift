@@ -18,6 +18,7 @@ import {
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 type GiftType = string;
+type LayoutOrientation = 'vertical' | 'horizontal';
 
 interface InventoryItem {
   name: string;
@@ -94,6 +95,7 @@ type ImageProcessStatus = 'idle' | 'processing' | 'success' | 'error';
 
 const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
+const gameSettingsRef = () => doc(db, 'game', 'settings');
 
 async function saveInventoryItems(items: Record<string, InventoryItem>) {
   const current = await getDocs(inventoryCollectionRef());
@@ -198,6 +200,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(DEFAULT_INVENTORY);
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
+  const [layoutOrientation, setLayoutOrientation] = useState<LayoutOrientation>('vertical');
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(true);
 
@@ -216,6 +219,7 @@ export default function App() {
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
+  const [adminLayoutOrientation, setAdminLayoutOrientation] = useState<LayoutOrientation>('vertical');
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
   const [selectedGiftPreset, setSelectedGiftPreset] = useState('');
 
@@ -258,6 +262,20 @@ export default function App() {
 
     return unsubscribe;
   }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!user) {
+      setLayoutOrientation('vertical');
+      return;
+    }
+
+    const unsubscribe = onSnapshot(gameSettingsRef(), (snapshot) => {
+      const savedOrientation = snapshot.data()?.layoutOrientation;
+      setLayoutOrientation(savedOrientation === 'horizontal' ? 'horizontal' : 'vertical');
+    });
+
+    return unsubscribe;
+  }, [user]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -398,6 +416,7 @@ export default function App() {
   const toggleAdmin = () => {
     if (!showAdmin) {
       setAdminInventory(JSON.parse(JSON.stringify(inventory)) as Record<string, InventoryItem>);
+      setAdminLayoutOrientation(layoutOrientation);
       setNewItem({ id: '', name: '', count: 0, img: '' });
       setSelectedGiftPreset('');
       setImageProcessStatus('idle');
@@ -538,7 +557,9 @@ export default function App() {
     setIsSaving(true);
     try {
       await saveInventoryItems(adminInventory);
+      await setDoc(gameSettingsRef(), { layoutOrientation: adminLayoutOrientation }, { merge: true });
       setInventory(adminInventory);
+      setLayoutOrientation(adminLayoutOrientation);
       setShowAdmin(false);
       resetGame(adminInventory);
       showFeedback({ type: 'success', message: 'Đã lưu thay đổi thành công' });
@@ -629,52 +650,23 @@ export default function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <header className="p-4 flex justify-between items-center border-b border-gray-100 shadow-sm bg-red-700 sticky top-0 z-10">
-        <div className="logo-box"></div>
-
-        <div className="flex items-center gap-3 bg-black/20 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 shadow-inner">
-          {!user ? (
-            <button onClick={() => void signInWithGoogle()} className="text-white text-sm font-semibold hover:text-red-200 transition cursor-pointer">
-              Đăng nhập
-            </button>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2" title={user.email || ''}>
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-7 h-7 rounded-full border border-white/30 shadow-sm" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold border border-white/30 shadow-sm">
-                    {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
-                  </div>
-                )}
-                <span className="text-white text-sm font-medium hidden sm:block max-w-[120px] truncate">
-                  {user.displayName || user.email?.split('@')[0]}
-                </span>
-              </div>
-
-              <div className="w-px h-4 bg-white/30"></div>
-
-              {isAdmin && (
-                <button onClick={toggleAdmin} className="text-white/80 hover:text-white transition cursor-pointer" title="Cài đặt">
-                  <Settings className="h-4 w-4" />
-                </button>
-              )}
-
-              <button onClick={logOut} className="text-white/80 hover:text-white transition cursor-pointer" title="Đăng xuất">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <main className="flex-grow flex flex-col items-center justify-center p-6">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-red-600 mb-2 uppercase tracking-tighter">LẬT Ô NHẬN QUÀ</h1>
-          <p className="text-red-600">Chọn 1 ô bất kỳ để nhận quà may mắn!</p>
+      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:flex-row md:gap-4' : ''}`}>
+        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-1/2' : ''}`}>
+          <div
+            className="mx-auto w-fit max-w-full select-none"
+            onContextMenu={(event) => event.preventDefault()}
+            onDragStart={(event) => event.preventDefault()}
+          >
+            <img
+              src="/typo-lat-o-nhan-qua.png"
+              alt="LẬT Ô NHẬN QUÀ"
+              draggable={false}
+              className="mx-auto h-auto max-h-56 max-w-full object-contain md:max-h-72"
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 w-full max-w-md aspect-square">
+        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-1/2' : ''}`}>
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
             const item = inventory[type] || DEFAULT_INVENTORY.none;
@@ -708,6 +700,50 @@ export default function App() {
         </div>
       </main>
 
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-red-100 bg-red-700 p-1.5 text-white shadow-xl shadow-red-900/20">
+        {!user ? (
+          <button
+            type="button"
+            onClick={() => void signInWithGoogle()}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-transparent p-0 transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white"
+            title="Đăng nhập"
+            aria-label="Đăng nhập"
+          >
+            <img src="/login-icon.png" alt="" className="h-full w-full object-contain" draggable={false} />
+          </button>
+        ) : (
+          <>
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white/20" title={user.email || ''}>
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-lg font-bold">{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
+              )}
+            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={toggleAdmin}
+                className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
+                title="Cài đặt"
+                aria-label="Cài đặt"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void logOut()}
+              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
+              title="Đăng xuất"
+              aria-label="Đăng xuất"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </>
+        )}
+      </div>
+
       {showAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-3xl max-h-[90vh] overflow-y-auto">
@@ -719,6 +755,35 @@ export default function App() {
             </div>
 
             <div className="space-y-6">
+              <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+                <label className="block text-sm font-bold uppercase tracking-wider text-red-700">BỐ CỤC TYPO</label>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminLayoutOrientation('vertical')}
+                    className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                      adminLayoutOrientation === 'vertical'
+                        ? 'border-red-600 bg-red-600 text-white'
+                        : 'border-red-200 bg-white text-red-700 hover:bg-red-100'
+                    }`}
+                  >
+                    DỌC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminLayoutOrientation('horizontal')}
+                    className={`rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                      adminLayoutOrientation === 'horizontal'
+                        ? 'border-red-600 bg-red-600 text-white'
+                        : 'border-red-200 bg-white text-red-700 hover:bg-red-100'
+                    }`}
+                  >
+                    NGANG
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-red-700/70">Thiết lập được đồng bộ cho Mac và iPad. Điện thoại luôn hiển thị dọc.</p>
+              </div>
+
               {Object.keys(adminInventory).map((key) => {
                 const item = adminInventory[key];
                 const isNone = key === 'none';

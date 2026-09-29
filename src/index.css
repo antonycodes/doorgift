@@ -67,16 +67,3 @@
   height: 100%;
   object-fit: contain;
 }
-
-/* Logo Placeholder Styling */
-.logo-box {
-  width: 120px;
-  height: 40px;
-
-  background-image: url('https://res.cloudinary.com/dxikjdqqn/image/upload/v1774159074/Logo_CPS_lfjpxv.webp');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-
-  background-color: transparent;
-}
