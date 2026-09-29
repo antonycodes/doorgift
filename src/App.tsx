@@ -798,14 +798,7 @@ export default function App() {
             </div>
             <div className="flex justify-center">
               <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white/95 p-8 text-center shadow-2xl shadow-red-900/10 backdrop-blur-sm md:p-10">
-                <div className="relative mx-auto mb-8 w-fit">
-                  <img src="/cellphones-logo.png" alt="CellphoneS" className="h-12 w-auto object-contain" draggable={false} />
-                  {accountNumber && (
-                    <span className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-700 text-sm font-black text-white shadow-lg" aria-label={`Tài khoản ${accountNumber}`}>
-                      {accountNumber}
-                    </span>
-                  )}
-                </div>
+                <img src="/cellphones-logo.png" alt="CellphoneS" className="mx-auto mb-8 h-12 w-auto object-contain" draggable={false} />
                 <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
                 <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
                 <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
@@ -876,22 +869,15 @@ export default function App() {
               ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
               : 'vertical-stage mb-2 w-full max-w-[42rem]'
             }`}>
-              <div className="relative mx-auto w-fit">
-                <img
-                  src="/cellphones-logo.png"
-                  alt="CellphoneS"
-                  draggable={false}
-                  className={displayOrientation === 'horizontal'
-                    ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
-                    : 'vertical-logo object-contain'
-                  }
-                />
-                {accountNumber && (
-                  <span className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-700 text-sm font-black text-white shadow-lg" aria-label={`Tài khoản ${accountNumber}`}>
-                    {accountNumber}
-                  </span>
-                )}
-              </div>
+              <img
+                src="/cellphones-logo.png"
+                alt="CellphoneS"
+                draggable={false}
+                className={displayOrientation === 'horizontal'
+                  ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
+                  : 'vertical-logo object-contain'
+                }
+              />
               <div
                 className={`mx-auto w-full select-none ${displayOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
                 onContextMenu={(event) => event.preventDefault()}
