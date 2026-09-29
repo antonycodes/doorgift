@@ -86,6 +86,8 @@ const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
   },
 };
 
+const EMPTY_INVENTORY = {} as Record<GiftType, InventoryItem>;
+
 const COMMON_GIFT_PRESETS = [
   { id: 'accessoryPouchCps', name: 'Túi phụ kiện CPS', count: 0, img: '/gifts/accessory-pouch-cps.jpg', icon: '🎒' },
   { id: 'waterBottle', name: 'Bình nước CPS', count: 0, img: '/gifts/water-bottle-cps.jpg', icon: '🧴' },
@@ -345,9 +347,7 @@ export default function App() {
 
     const unsubscribe = onSnapshot(inventoryCollectionRef(), (snapshot) => {
       if (snapshot.empty) {
-        if (isAdmin) {
-          void saveInventoryItems(DEFAULT_INVENTORY).catch(console.error);
-        }
+        setInventory(EMPTY_INVENTORY);
         return;
       }
 
@@ -359,7 +359,7 @@ export default function App() {
     });
 
     return unsubscribe;
-  }, [user, isAdmin]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -852,7 +852,7 @@ export default function App() {
     if (!isAdmin || isSaving || isResetting) return;
     setIsResetting(true);
     try {
-      await saveInventoryItems(DEFAULT_INVENTORY);
+      await saveInventoryItems(EMPTY_INVENTORY);
       await setDoc(gameSettingsRef(), {
         layoutOrientation: 'vertical',
         ...DEFAULT_GAME_SETTINGS,
@@ -864,18 +864,18 @@ export default function App() {
       const deletePromises = snapshot.docs.map((itemDoc) => deleteDoc(itemDoc.ref));
       await Promise.all(deletePromises);
 
-      setInventory(DEFAULT_INVENTORY);
+      setInventory(EMPTY_INVENTORY);
       setGameSettings(DEFAULT_GAME_SETTINGS);
       setInitialInventorySnapshot(null);
       setInitialInventoryLockedAt(null);
       setLayoutOrientation('vertical');
       setShowConfirmReset(false);
       setShowAdmin(false);
-      resetGame(DEFAULT_INVENTORY);
-      showFeedback({ type: 'success', message: 'Đã khôi phục dữ liệu gốc thành công' });
+      resetGame(EMPTY_INVENTORY);
+      showFeedback({ type: 'success', message: 'Đã reset: chưa có quà và chưa chốt số quà ban đầu' });
     } catch (error) {
       console.error('Lỗi khôi phục dữ liệu', error);
-      showFeedback({ type: 'error', message: getActionErrorMessage(error, 'khôi phục dữ liệu gốc') });
+      showFeedback({ type: 'error', message: getActionErrorMessage(error, 'reset dữ liệu') });
     } finally {
       setIsResetting(false);
     }
@@ -1642,7 +1642,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Xác nhận khôi phục</h3>
-            <p className="text-gray-600 mb-8">Bạn có chắc chắn muốn xóa toàn bộ dữ liệu (số lượng quà, lịch sử lật) và khôi phục về mặc định? Hành động này không thể hoàn tác.</p>
+            <p className="text-gray-600 mb-8">Bạn có chắc chắn muốn xóa toàn bộ dữ liệu (số lượng quà, lịch sử lật)? Sau khi reset, kho quà sẽ trống và chưa chốt số quà ban đầu.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirmReset(false)} className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition cursor-pointer">
                 HỦY
@@ -1652,7 +1652,7 @@ export default function App() {
                 disabled={isResetting || isSaving}
                 className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
               >
-                {isResetting ? 'ĐANG KHÔI PHỤC...' : 'KHÔI PHỤC'}
+                {isResetting ? 'ĐANG RESET...' : 'RESET'}
               </button>
             </div>
           </div>
