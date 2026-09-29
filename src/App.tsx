@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, Download, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
+import { Settings, Download, Save, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
 import {
@@ -752,15 +752,16 @@ export default function App() {
 
       {showAdmin && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800 uppercase">Cài đặt hệ thống</h2>
-              <button onClick={toggleAdmin} className="text-gray-400 hover:text-red-600 transition cursor-pointer">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+          <div className="relative w-full max-w-lg">
+            <div className="bg-white rounded-2xl p-6 w-full shadow-3xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 uppercase">Cài đặt hệ thống</h2>
+                <button onClick={toggleAdmin} className="text-gray-400 hover:text-red-600 transition cursor-pointer">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
 
-            <div className="space-y-6">
+              <div className="space-y-6">
               <div className="rounded-xl border border-red-100 bg-red-50 p-4">
                 <label className="block text-sm font-bold text-red-700">Bố cục</label>
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -970,24 +971,48 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mt-8 space-y-3">
+              <div className="mt-8 space-y-3">
+                <div className="space-y-3 md:hidden">
+                  <button
+                    onClick={saveAdminSettings}
+                    disabled={isSaving || isResetting}
+                    className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isSaving ? 'ĐANG LƯU...' : 'LƯU THAY ĐỔI'}
+                  </button>
+                  <button onClick={exportLogs} className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 cursor-pointer">
+                    <Download className="h-5 w-5" />
+                    XUẤT FILE NHẬT KÝ (LOG)
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowConfirmReset(true)}
+                  disabled={isSaving || isResetting}
+                  className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  KHÔI PHỤC DỮ LIỆU GỐC
+                </button>
+              </div>
+            </div>
+            <div className="absolute -right-16 top-4 hidden flex-col gap-2 rounded-full border border-gray-100 bg-white p-2 shadow-xl md:flex">
               <button
+                type="button"
                 onClick={saveAdminSettings}
                 disabled={isSaving || isResetting}
-                className="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 transition cursor-pointer disabled:cursor-wait disabled:opacity-60"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-red-600 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-50"
+                title="Lưu thay đổi"
+                aria-label="Lưu thay đổi"
               >
-                {isSaving ? 'ĐANG LƯU...' : 'LƯU THAY ĐỔI'}
-              </button>
-              <button onClick={exportLogs} className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-200 transition flex items-center justify-center gap-2 cursor-pointer">
-                <Download className="h-5 w-5" />
-                XUẤT FILE NHẬT KÝ (LOG)
+                <Save className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setShowConfirmReset(true)}
-                disabled={isSaving || isResetting}
-                className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={exportLogs}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+                title="Xuất file nhật ký"
+                aria-label="Xuất file nhật ký"
               >
-                KHÔI PHỤC DỮ LIỆU GỐC
+                <Download className="h-5 w-5" />
               </button>
             </div>
           </div>
