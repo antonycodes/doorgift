@@ -200,7 +200,18 @@ async function composeGiftImage(foreground: Blob): Promise<string> {
 }
 
 async function processGiftImage(source: Blob | string, onProgress: (progress: number) => void): Promise<string> {
-  const foreground = await removeBackground(source, {
+  const resolvedSource = typeof source === 'string'
+    ? (() => {
+        const sourceUrl = new URL(source, window.location.origin);
+        const isMisresolvedGiftAsset = sourceUrl.hostname === 'staticimgly.com'
+          && sourceUrl.pathname.startsWith('/gifts/');
+        return isMisresolvedGiftAsset
+          ? new URL(sourceUrl.pathname, window.location.origin).href
+          : sourceUrl.href;
+      })()
+    : source;
+
+  const foreground = await removeBackground(resolvedSource, {
     model: 'isnet_quint8',
     device: 'cpu',
     output: { format: 'image/png' },
