@@ -954,7 +954,7 @@ export default function App() {
             {user.photoURL ? (
               <img src={user.photoURL} alt="Avatar" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <span className="text-lg font-bold">{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
+              <span className="text-lg font-bold">{accountNumber || user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
             )}
           </div>
           {isAdmin && (
