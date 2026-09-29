@@ -77,6 +77,8 @@ type Feedback = {
   message: string;
 };
 
+type ImageProcessStatus = 'idle' | 'processing' | 'success' | 'error';
+
 const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
 
@@ -195,6 +197,7 @@ export default function App() {
   const [isResetting, setIsResetting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageProcessingProgress, setImageProcessingProgress] = useState(0);
+  const [imageProcessStatus, setImageProcessStatus] = useState<ImageProcessStatus>('idle');
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
@@ -369,6 +372,7 @@ export default function App() {
     if (!showAdmin) {
       setAdminInventory(JSON.parse(JSON.stringify(inventory)) as Record<string, InventoryItem>);
       setNewItem({ id: '', name: '', count: 0, img: '' });
+      setImageProcessStatus('idle');
     }
     setShowAdmin(!showAdmin);
   };
@@ -408,6 +412,7 @@ export default function App() {
       },
     }));
     setNewItem({ id: '', name: '', count: 0, img: '' });
+    setImageProcessStatus('idle');
   };
 
   const handleNewItemImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -422,17 +427,21 @@ export default function App() {
 
     setIsProcessingImage(true);
     setImageProcessingProgress(0);
+    setImageProcessStatus('processing');
 
     try {
       const image = await processGiftImage(file, setImageProcessingProgress);
       setNewItem(prev => ({ ...prev, img: image }));
+      setImageProcessStatus('success');
       showFeedback({ type: 'success', message: 'Đã xóa nền ảnh quà thành công' });
     } catch (error) {
       try {
         const originalImage = await optimizeGiftImage(file);
         setNewItem(prev => ({ ...prev, img: originalImage }));
+        setImageProcessStatus('error');
         showFeedback({ type: 'error', message: 'AI không xử lý được. Đã dùng ảnh gốc.' });
       } catch (fallbackError) {
+        setImageProcessStatus('error');
         showFeedback({
           type: 'error',
           message: fallbackError instanceof Error ? fallbackError.message : 'Không thể xử lý ảnh. Vui lòng thử lại.'
@@ -752,21 +761,35 @@ export default function App() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className={`inline-flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-xs font-bold text-white transition ${isProcessingImage ? 'cursor-wait opacity-60' : 'cursor-pointer hover:bg-gray-900'}`}>
-                          <ImagePlus className="h-4 w-4" />
-                          {isProcessingImage ? `ĐANG XỬ LÝ ${imageProcessingProgress}%` : 'CHỌN ẢNH'}
+                        <label className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-white transition ${
+                          imageProcessStatus === 'success'
+                            ? 'bg-green-600 cursor-pointer hover:bg-green-700'
+                            : imageProcessStatus === 'processing'
+                              ? 'bg-red-600 cursor-wait opacity-80'
+                              : 'bg-red-700 cursor-pointer hover:bg-red-800'
+                        }`}>
+                          {imageProcessStatus === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <ImagePlus className="h-4 w-4" />}
+                          {isProcessingImage
+                            ? `ĐANG TÁCH NỀN TỰ ĐỘNG ${imageProcessingProgress}%`
+                            : imageProcessStatus === 'success'
+                              ? 'TÁCH NỀN THÀNH CÔNG'
+                              : imageProcessStatus === 'error'
+                                ? 'TÁCH NỀN THẤT BẠI - CHỌN LẠI'
+                                : 'CHỌN ẢNH'}
                           <input type="file" accept="image/*" onChange={handleNewItemImageChange} disabled={isProcessingImage} className="hidden" />
                         </label>
                         {newItem.img && !isProcessingImage && (
                           <button
                             type="button"
-                            onClick={() => setNewItem(prev => ({ ...prev, img: '' }))}
+                            onClick={() => {
+                              setNewItem(prev => ({ ...prev, img: '' }));
+                              setImageProcessStatus('idle');
+                            }}
                             className="rounded-lg px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
                           >
                             XÓA ẢNH
                           </button>
                         )}
-                        <p className="basis-full text-[10px] text-gray-400">Ảnh sẽ được nén tự động trước khi lưu.</p>
                       </div>
                     </div>
                   </div>
