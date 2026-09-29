@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
+import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus, Eye, EyeOff } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import {
   auth,
@@ -113,6 +113,7 @@ type ImageProcessStatus = 'idle' | 'processing' | 'success' | 'error';
 const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
 const gameSettingsRef = () => doc(db, 'game', 'settings');
+const accountNumberFromId = (accountId: string | null) => accountId?.match(/(?:^|_)(\d+)$/)?.[1] || null;
 
 async function saveInventoryItems(items: Record<string, InventoryItem>) {
   const current = await getDocs(inventoryCollectionRef());
@@ -247,6 +248,7 @@ export default function App() {
   const [selectedGiftPreset, setSelectedGiftPreset] = useState('');
   const [accountId, setAccountId] = useState('');
   const [accountPassword, setAccountPassword] = useState('');
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -736,6 +738,8 @@ export default function App() {
     ...(adminInventory.none ? ['none'] : []),
   ];
   const displayOrientation: LayoutOrientation = isPhoneViewport ? 'vertical' : layoutOrientation;
+  const activeAccountId = accountIdFromAuthEmail(user?.email || null) || accountId || null;
+  const accountNumber = accountNumberFromId(activeAccountId);
 
   const handleAccountLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -794,7 +798,14 @@ export default function App() {
             </div>
             <div className="flex justify-center">
               <div className="w-full max-w-md rounded-3xl border border-red-100 bg-white/95 p-8 text-center shadow-2xl shadow-red-900/10 backdrop-blur-sm md:p-10">
-                <img src="/cellphones-logo.png" alt="CellphoneS" className="mx-auto mb-8 h-12 w-auto object-contain" draggable={false} />
+                <div className="relative mx-auto mb-8 w-fit">
+                  <img src="/cellphones-logo.png" alt="CellphoneS" className="h-12 w-auto object-contain" draggable={false} />
+                  {accountNumber && (
+                    <span className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-700 text-sm font-black text-white shadow-lg" aria-label={`Tài khoản ${accountNumber}`}>
+                      {accountNumber}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm font-bold uppercase tracking-[0.3em] text-red-600">Welcome</p>
                 <h1 className="mt-3 text-2xl font-black uppercase text-gray-900 md:text-3xl">Mời đăng nhập</h1>
                 <p className="mt-3 text-sm leading-relaxed text-gray-500">Đăng nhập để bắt đầu tham gia lật ô nhận quà.</p>
@@ -816,14 +827,25 @@ export default function App() {
                   <label className="block text-xs font-bold uppercase tracking-wide text-gray-600" htmlFor="account-password">
                     Mật khẩu
                   </label>
-                  <input
-                    id="account-password"
-                    type="password"
-                    value={accountPassword}
-                    onChange={(event) => setAccountPassword(event.target.value)}
-                    autoComplete="current-password"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                  />
+                  <div className="relative">
+                    <input
+                      id="account-password"
+                      type={showAccountPassword ? 'text' : 'password'}
+                      value={accountPassword}
+                      onChange={(event) => setAccountPassword(event.target.value)}
+                      autoComplete="current-password"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountPassword((visible) => !visible)}
+                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                      aria-label={showAccountPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      title={showAccountPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showAccountPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                   {loginError && <p className="text-sm font-semibold text-red-600" role="alert">{loginError}</p>}
                   <button
                     type="submit"
@@ -854,15 +876,22 @@ export default function App() {
               ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-center'
               : 'vertical-stage mb-2 w-full max-w-[42rem]'
             }`}>
-              <img
-                src="/cellphones-logo.png"
-                alt="CellphoneS"
-                draggable={false}
-                className={displayOrientation === 'horizontal'
-                  ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
-                  : 'vertical-logo object-contain'
-                }
-              />
+              <div className="relative mx-auto w-fit">
+                <img
+                  src="/cellphones-logo.png"
+                  alt="CellphoneS"
+                  draggable={false}
+                  className={displayOrientation === 'horizontal'
+                    ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
+                    : 'vertical-logo object-contain'
+                  }
+                />
+                {accountNumber && (
+                  <span className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-700 text-sm font-black text-white shadow-lg" aria-label={`Tài khoản ${accountNumber}`}>
+                    {accountNumber}
+                  </span>
+                )}
+              </div>
               <div
                 className={`mx-auto w-full select-none ${displayOrientation === 'horizontal' ? 'md:mx-auto' : 'max-w-[42rem]'}`}
                 onContextMenu={(event) => event.preventDefault()}
