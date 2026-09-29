@@ -102,6 +102,14 @@ const COMMON_GIFT_PRESETS = [
 const RESULT_DELAY_MS = 500;
 const RESET_DELAY_MS = 500;
 const BACKGROUND_REMOVAL_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+const MAX_GIFT_IMAGE_DATA_URL_LENGTH = 700_000;
+const GIFT_IMAGE_ENCODING_ATTEMPTS = [
+  { maxDimension: 900, quality: 0.8 },
+  { maxDimension: 900, quality: 0.65 },
+  { maxDimension: 800, quality: 0.65 },
+  { maxDimension: 720, quality: 0.58 },
+  { maxDimension: 640, quality: 0.5 },
+] as const;
 const DEFAULT_GAME_SETTINGS: GameSettings = {
   totalCheckins: 0,
   giftIssueRate: 90,
@@ -160,32 +168,34 @@ function optimizeGiftImage(file: File): Promise<string> {
       const image = new Image();
       image.onerror = () => reject(new Error('File không phải ảnh hợp lệ.'));
       image.onload = () => {
-        const maxDimension = 900;
-        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext('2d');
-
-        if (!context) {
-          reject(new Error('Trình duyệt không hỗ trợ xử lý ảnh.'));
-          return;
+        try {
+          resolve(encodeGiftImage(image));
+        } catch (error) {
+          reject(error);
         }
-
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const optimizedImage = canvas.toDataURL('image/webp', 0.8);
-
-        if (optimizedImage.length > 700_000) {
-          reject(new Error('Ảnh vẫn quá lớn sau khi nén. Vui lòng chọn ảnh khác.'));
-          return;
-        }
-
-        resolve(optimizedImage);
       };
       image.src = String(reader.result);
     };
     reader.readAsDataURL(file);
   });
+}
+
+function encodeGiftImage(image: HTMLImageElement): string {
+  for (const { maxDimension, quality } of GIFT_IMAGE_ENCODING_ATTEMPTS) {
+    const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+
+    if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const encodedImage = canvas.toDataURL('image/webp', quality);
+    if (encodedImage.length <= MAX_GIFT_IMAGE_DATA_URL_LENGTH) return encodedImage;
+  }
+
+  throw new Error('Ảnh vẫn quá lớn sau khi nén. Vui lòng chọn ảnh khác.');
 }
 
 function loadImage(source: Blob | string): Promise<HTMLImageElement> {
@@ -225,21 +235,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 
 async function composeGiftImage(foreground: Blob): Promise<string> {
   const image = await loadImage(foreground);
-  const maxDimension = 900;
-  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.width * scale));
-  canvas.height = Math.max(1, Math.round(image.height * scale));
-  const context = canvas.getContext('2d');
-
-  if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
-
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-  let result = canvas.toDataURL('image/webp', 0.82);
-  if (result.length > 700_000) result = canvas.toDataURL('image/webp', 0.62);
-  if (result.length > 700_000) throw new Error('Ảnh vẫn quá lớn sau khi xử lý. Vui lòng chọn ảnh khác.');
-  return result;
+  return encodeGiftImage(image);
 }
 
 async function processGiftImage(source: Blob | string, onProgress: (progress: number) => void): Promise<string> {
