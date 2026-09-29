@@ -650,8 +650,8 @@ export default function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:flex-row md:gap-8' : ''}`}>
-        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-[42%] md:shrink-0 md:text-left' : ''}`}>
+      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:grid md:grid-cols-2 md:gap-8' : ''}`}>
+        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-full md:self-center md:text-left' : ''}`}>
           <div
             className={`mx-auto w-fit max-w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
             onContextMenu={(event) => event.preventDefault()}
@@ -661,12 +661,12 @@ export default function App() {
               src="/typo-lat-o-nhan-qua.png"
               alt="LẬT Ô NHẬN QUÀ"
               draggable={false}
-              className={`mx-auto h-auto max-h-56 max-w-full object-contain md:max-h-72 ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
+              className={`mx-auto h-auto max-h-56 max-w-full object-contain ${layoutOrientation === 'horizontal' ? 'md:mx-0 md:max-h-[30rem]' : 'md:max-h-72'}`}
             />
           </div>
         </div>
 
-        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-[58%] md:max-w-lg md:shrink-0' : ''}`}>
+        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-full md:max-w-3xl md:justify-self-center' : ''}`}>
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
             const item = inventory[type] || DEFAULT_INVENTORY.none;
