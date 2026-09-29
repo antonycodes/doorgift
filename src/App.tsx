@@ -652,6 +652,12 @@ export default function App() {
     >
       <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:grid md:grid-cols-2 md:gap-8' : ''}`}>
         <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-full md:self-center md:text-left' : ''}`}>
+          <img
+            src="/cellphones-logo.png"
+            alt="CellphoneS"
+            draggable={false}
+            className="mx-auto mb-4 h-10 w-auto object-contain md:h-12"
+          />
           <div
             className={`mx-auto w-fit max-w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
             onContextMenu={(event) => event.preventDefault()}
