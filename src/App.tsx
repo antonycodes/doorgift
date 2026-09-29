@@ -1431,12 +1431,20 @@ export default function App() {
                   <div className="md:col-span-2">
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">ẢNH QUÀ</label>
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-gradient-to-b from-slate-50 to-white ${imageProcessStatus === 'success' ? 'border-green-400' : imageProcessStatus === 'error' ? 'border-red-400' : 'border-gray-300'}`}>
+                      <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-gradient-to-b from-slate-50 to-white ${imageProcessStatus === 'success' ? 'border-green-400' : imageProcessStatus === 'error' ? 'border-red-400' : 'border-gray-300'}`}>
+                        {imageProcessStatus === 'success' && (
+                          <img
+                            src="/background-removed-watermark.png"
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 h-full w-full object-cover opacity-20"
+                          />
+                        )}
                         {newItem.img ? (
                           <button
                             type="button"
                             onClick={() => setPreviewImage({ src: newItem.img, alt: newItem.name || 'Ảnh quà mới' })}
-                            className="h-full w-full cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
+                            className="relative z-10 h-full w-full cursor-zoom-in rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset"
                             aria-label="Xem ảnh quà mới kích thước lớn"
                           >
                             <img src={newItem.img} alt="Xem trước quà mới" className="h-full w-full object-contain" />
