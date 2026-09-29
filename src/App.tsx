@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus, Eye, EyeOff, LayoutDashboard } from 'lucide-react';
+import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus, Eye, EyeOff, LayoutDashboard, WandSparkles } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import {
   auth,
@@ -110,7 +110,7 @@ type Feedback = {
   message: string;
 };
 
-type ImageProcessStatus = 'idle' | 'processing' | 'success' | 'error';
+type ImageProcessStatus = 'idle' | 'uploaded' | 'processing' | 'success' | 'error';
 
 const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items');
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
@@ -603,28 +603,35 @@ export default function App() {
       return;
     }
 
+    try {
+      const image = await optimizeGiftImage(file);
+      setNewItem(prev => ({ ...prev, img: image }));
+      setImageProcessStatus('uploaded');
+      showFeedback({ type: 'success', message: 'Đã tải ảnh lên. Bấm icon tách nền nếu cần.' });
+    } catch (error) {
+      setImageProcessStatus('error');
+      showFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Không thể tải ảnh. Vui lòng thử lại.'
+      });
+    }
+  };
+
+  const handleNewItemBackgroundRemoval = async () => {
+    if (!newItem.img || isProcessingImage) return;
+
     setIsProcessingImage(true);
     setImageProcessingProgress(0);
     setImageProcessStatus('processing');
 
     try {
-      const image = await processGiftImage(file, setImageProcessingProgress);
-      setNewItem(prev => ({ ...prev, img: image }));
+      const processedImage = await processGiftImage(newItem.img, setImageProcessingProgress);
+      setNewItem(prev => ({ ...prev, img: processedImage }));
       setImageProcessStatus('success');
-      showFeedback({ type: 'success', message: 'Đã xóa nền ảnh quà thành công' });
-    } catch (error) {
-      try {
-        const originalImage = await optimizeGiftImage(file);
-        setNewItem(prev => ({ ...prev, img: originalImage }));
-        setImageProcessStatus('error');
-        showFeedback({ type: 'error', message: 'AI không xử lý được. Đã dùng ảnh gốc.' });
-      } catch (fallbackError) {
-        setImageProcessStatus('error');
-        showFeedback({
-          type: 'error',
-          message: fallbackError instanceof Error ? fallbackError.message : 'Không thể xử lý ảnh. Vui lòng thử lại.'
-        });
-      }
+      showFeedback({ type: 'success', message: 'Đã tách nền ảnh quà thành công' });
+    } catch {
+      setImageProcessStatus('uploaded');
+      showFeedback({ type: 'error', message: 'Không thể tách nền ảnh này. Ảnh gốc vẫn được giữ lại.' });
     } finally {
       setIsProcessingImage(false);
       setImageProcessingProgress(0);
@@ -1422,7 +1429,7 @@ export default function App() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">PREVIEW SAU KHI TÁCH NỀN</label>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">ẢNH QUÀ</label>
                     <div className="flex items-center gap-3">
                       <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-gradient-to-b from-slate-50 to-white ${imageProcessStatus === 'success' ? 'border-green-400' : imageProcessStatus === 'error' ? 'border-red-400' : 'border-gray-300'}`}>
                         {newItem.img ? (
@@ -1439,23 +1446,30 @@ export default function App() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-white transition ${
-                          imageProcessStatus === 'success'
-                            ? 'bg-green-600 cursor-pointer hover:bg-green-700'
-                            : imageProcessStatus === 'processing'
-                              ? 'bg-red-600 cursor-wait opacity-80'
-                              : 'bg-red-700 cursor-pointer hover:bg-red-800'
-                        }`}>
-                          {imageProcessStatus === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <ImagePlus className="h-4 w-4" />}
-                          {isProcessingImage
-                            ? `ĐANG TÁCH NỀN TỰ ĐỘNG ${imageProcessingProgress}%`
-                            : imageProcessStatus === 'success'
-                              ? 'TÁCH NỀN THÀNH CÔNG'
-                              : imageProcessStatus === 'error'
-                                ? 'TÁCH NỀN THẤT BẠI - CHỌN LẠI'
-                                : 'CHỌN ẢNH'}
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-800">
+                          <ImagePlus className="h-4 w-4" />
+                          CHỌN ẢNH
                           <input type="file" accept="image/*" onChange={handleNewItemImageChange} disabled={isProcessingImage} className="hidden" />
                         </label>
+                        {newItem.img && (
+                          <button
+                            type="button"
+                            onClick={() => void handleNewItemBackgroundRemoval()}
+                            disabled={isProcessingImage}
+                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-white transition disabled:cursor-wait disabled:opacity-60 ${
+                              imageProcessStatus === 'success' ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-800 hover:bg-gray-900'
+                            }`}
+                            title="Tách nền ảnh"
+                            aria-label="Tách nền ảnh quà"
+                          >
+                            {isProcessingImage ? <WandSparkles className="h-4 w-4 animate-pulse" /> : imageProcessStatus === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <WandSparkles className="h-4 w-4" />}
+                            {isProcessingImage
+                              ? `ĐANG TÁCH NỀN ${imageProcessingProgress}%`
+                              : imageProcessStatus === 'success'
+                                ? 'ĐÃ TÁCH NỀN'
+                                : 'TÁCH NỀN'}
+                          </button>
+                        )}
                         {newItem.img && !isProcessingImage && (
                           <button
                             type="button"
