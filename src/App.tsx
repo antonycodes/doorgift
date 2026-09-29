@@ -37,6 +37,11 @@ interface LogEntry {
   createdAt?: unknown;
 }
 
+interface GameSettings {
+  totalCheckins: number;
+  giftIssueRate: number;
+}
+
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
   mug: {
     name: 'Ly sứ CPS',
@@ -85,6 +90,10 @@ const COMMON_GIFT_PRESETS = [
 
 const RESULT_DELAY_MS = 500;
 const RESET_DELAY_MS = 500;
+const DEFAULT_GAME_SETTINGS: GameSettings = {
+  totalCheckins: 0,
+  giftIssueRate: 90,
+};
 
 type Feedback = {
   type: 'success' | 'error';
@@ -201,6 +210,7 @@ export default function App() {
   const [inventory, setInventory] = useState<Record<GiftType, InventoryItem>>(DEFAULT_INVENTORY);
   const [gridItems, setGridItems] = useState<GiftType[]>([]);
   const [layoutOrientation, setLayoutOrientation] = useState<LayoutOrientation>('vertical');
+  const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_GAME_SETTINGS);
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [gameActive, setGameActive] = useState(true);
 
@@ -220,6 +230,8 @@ export default function App() {
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
   const [adminLayoutOrientation, setAdminLayoutOrientation] = useState<LayoutOrientation>('vertical');
+  const [adminTotalCheckins, setAdminTotalCheckins] = useState(DEFAULT_GAME_SETTINGS.totalCheckins);
+  const [adminGiftIssueRate, setAdminGiftIssueRate] = useState(DEFAULT_GAME_SETTINGS.giftIssueRate);
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
   const [selectedGiftPreset, setSelectedGiftPreset] = useState('');
 
@@ -266,12 +278,21 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setLayoutOrientation('vertical');
+      setGameSettings(DEFAULT_GAME_SETTINGS);
       return;
     }
 
     const unsubscribe = onSnapshot(gameSettingsRef(), (snapshot) => {
-      const savedOrientation = snapshot.data()?.layoutOrientation;
+      const settings = snapshot.data() || {};
+      const savedOrientation = settings.layoutOrientation;
+      const savedTotalCheckins = Number(settings.totalCheckins);
+      const savedGiftIssueRate = Number(settings.giftIssueRate);
+
       setLayoutOrientation(savedOrientation === 'horizontal' ? 'horizontal' : 'vertical');
+      setGameSettings({
+        totalCheckins: Number.isFinite(savedTotalCheckins) ? Math.max(0, Math.floor(savedTotalCheckins)) : DEFAULT_GAME_SETTINGS.totalCheckins,
+        giftIssueRate: Number.isFinite(savedGiftIssueRate) ? Math.min(100, Math.max(0, savedGiftIssueRate)) : DEFAULT_GAME_SETTINGS.giftIssueRate,
+      });
     });
 
     return unsubscribe;
@@ -417,6 +438,8 @@ export default function App() {
     if (!showAdmin) {
       setAdminInventory(JSON.parse(JSON.stringify(inventory)) as Record<string, InventoryItem>);
       setAdminLayoutOrientation(layoutOrientation);
+      setAdminTotalCheckins(gameSettings.totalCheckins);
+      setAdminGiftIssueRate(gameSettings.giftIssueRate);
       setNewItem({ id: '', name: '', count: 0, img: '' });
       setSelectedGiftPreset('');
       setImageProcessStatus('idle');
@@ -554,14 +577,37 @@ export default function App() {
 
   const saveAdminSettings = async () => {
     if (!isAdmin || isSaving || isResetting) return;
+
+    const totalGiftStock = Object.entries(adminInventory)
+      .filter(([key]) => key !== 'none')
+      .reduce((total, [, item]) => total + Math.max(0, Math.floor(item.count)), 0);
+    const giftsToIssue = Math.min(
+      totalGiftStock,
+      Math.floor(totalGiftStock * adminGiftIssueRate / 100),
+    );
+    const nextLuckCount = adminTotalCheckins > 0
+      ? Math.max(0, adminTotalCheckins - giftsToIssue)
+      : adminInventory.none?.count || 0;
+    const nextInventory = adminInventory.none
+      ? {
+          ...adminInventory,
+          none: { ...adminInventory.none, count: nextLuckCount },
+        }
+      : adminInventory;
+
     setIsSaving(true);
     try {
-      await saveInventoryItems(adminInventory);
-      await setDoc(gameSettingsRef(), { layoutOrientation: adminLayoutOrientation }, { merge: true });
-      setInventory(adminInventory);
+      await saveInventoryItems(nextInventory);
+      await setDoc(gameSettingsRef(), {
+        layoutOrientation: adminLayoutOrientation,
+        totalCheckins: adminTotalCheckins,
+        giftIssueRate: adminGiftIssueRate,
+      }, { merge: true });
+      setInventory(nextInventory);
+      setGameSettings({ totalCheckins: adminTotalCheckins, giftIssueRate: adminGiftIssueRate });
       setLayoutOrientation(adminLayoutOrientation);
       setShowAdmin(false);
-      resetGame(adminInventory);
+      resetGame(nextInventory);
       showFeedback({ type: 'success', message: 'Đã lưu thay đổi thành công' });
     } catch (error) {
       console.error('Lỗi lưu cài đặt', error);
@@ -622,12 +668,18 @@ export default function App() {
     setIsResetting(true);
     try {
       await saveInventoryItems(DEFAULT_INVENTORY);
+      await setDoc(gameSettingsRef(), {
+        layoutOrientation: 'vertical',
+        ...DEFAULT_GAME_SETTINGS,
+      }, { merge: true });
 
       const snapshot = await getDocs(collection(db, 'logs'));
       const deletePromises = snapshot.docs.map((itemDoc) => deleteDoc(itemDoc.ref));
       await Promise.all(deletePromises);
 
       setInventory(DEFAULT_INVENTORY);
+      setGameSettings(DEFAULT_GAME_SETTINGS);
+      setLayoutOrientation('vertical');
       setShowConfirmReset(false);
       setShowAdmin(false);
       resetGame(DEFAULT_INVENTORY);
@@ -639,6 +691,23 @@ export default function App() {
       setIsResetting(false);
     }
   };
+
+  const totalGiftStock = Object.entries(adminInventory)
+    .filter(([key]) => key !== 'none')
+    .reduce((total, [, item]) => total + Math.max(0, Math.floor(item.count)), 0);
+  const hasLuckCalculationInputs = adminTotalCheckins > 0 && totalGiftStock > 0;
+  const giftsToIssue = Math.min(
+    totalGiftStock,
+    Math.floor(totalGiftStock * adminGiftIssueRate / 100),
+  );
+  const backupGiftCount = Math.max(0, totalGiftStock - giftsToIssue);
+  const nextLuckCount = hasLuckCalculationInputs
+    ? Math.max(0, adminTotalCheckins - giftsToIssue)
+    : adminInventory.none?.count || 0;
+  const adminInventoryKeys = [
+    ...Object.keys(adminInventory).filter((key) => key !== 'none'),
+    ...(adminInventory.none ? ['none'] : []),
+  ];
 
   return (
     <div
@@ -790,12 +859,12 @@ export default function App() {
                 </div>
               </div>
 
-              {Object.keys(adminInventory).map((key) => {
+              {adminInventoryKeys.map((key) => {
                 const item = adminInventory[key];
                 const isNone = key === 'none';
 
                 return (
-                  <div key={key} className="p-4 border border-gray-100 rounded-xl bg-gray-50 relative">
+                  <div key={key} className={`relative rounded-xl border p-4 ${isNone ? 'border-emerald-200 bg-emerald-50/60' : 'border-gray-100 bg-gray-50'}`}>
                     {!isNone && (
                       <button onClick={() => handleRemoveItem(key)} className="absolute top-2 right-2 text-gray-400 hover:text-red-600">
                         <X className="w-4 h-4" />
@@ -809,8 +878,8 @@ export default function App() {
                           <span className="text-2xl">{item.icon || '🎁'}</span>
                         )}
                       </div>
-                      <label className="block text-sm font-bold text-red-600 uppercase tracking-wider">
-                        {isNone ? 'CHÚC MAY MẮN LẦN SAU (TRƯỢT)' : item.name}
+                      <label className={`block text-sm font-bold uppercase tracking-wider ${isNone ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {isNone ? 'CHÚC BẠN MAY MẮN LẦN SAU' : item.name}
                       </label>
                     </div>
 
@@ -827,16 +896,72 @@ export default function App() {
                         </div>
                       )}
 
-                      <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng kho</label>
-                        <input
-                          type="number"
-                          value={item.count}
-                          onChange={(event) => handleAdminChange(key, 'count', Number.parseInt(event.target.value, 10) || 0)}
-                          min="0"
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
-                        />
-                      </div>
+                      {isNone ? (
+                        <div className="md:col-span-2 space-y-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Tổng SV check-in</label>
+                              <input
+                                type="number"
+                                value={adminTotalCheckins}
+                                onChange={(event) => setAdminTotalCheckins(Math.max(0, Number.parseInt(event.target.value, 10) || 0))}
+                                min="0"
+                                step="1"
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">Tỷ lệ quà phát ra (%)</label>
+                              <input
+                                type="number"
+                                value={adminGiftIssueRate}
+                                onChange={(event) => {
+                                  const rate = Number.parseFloat(event.target.value);
+                                  setAdminGiftIssueRate(Number.isFinite(rate) ? Math.min(100, Math.max(0, rate)) : 0);
+                                }}
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-center md:grid-cols-4">
+                            <div className="rounded-lg bg-white px-2 py-3">
+                              <div className="text-[10px] font-bold uppercase text-gray-400">Tổng quà</div>
+                              <div className="mt-1 text-lg font-bold text-gray-800">{totalGiftStock}</div>
+                            </div>
+                            <div className="rounded-lg bg-white px-2 py-3">
+                              <div className="text-[10px] font-bold uppercase text-gray-400">Quà phát</div>
+                              <div className="mt-1 text-lg font-bold text-emerald-700">{giftsToIssue}</div>
+                            </div>
+                            <div className="rounded-lg bg-white px-2 py-3">
+                              <div className="text-[10px] font-bold uppercase text-gray-400">Backup</div>
+                              <div className="mt-1 text-lg font-bold text-amber-600">{backupGiftCount}</div>
+                            </div>
+                            <div className="rounded-lg bg-emerald-100 px-2 py-3">
+                              <div className="text-[10px] font-bold uppercase text-emerald-700">May mắn lần sau</div>
+                              <div className="mt-1 text-lg font-bold text-emerald-800">{hasLuckCalculationInputs ? nextLuckCount : '—'}</div>
+                            </div>
+                          </div>
+
+                          <p className="text-xs leading-relaxed text-gray-500">
+                            Công thức: <strong>SV check-in − quà phát</strong>. Nhập tổng SV để cập nhật số này.
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Số lượng kho</label>
+                          <input
+                            type="number"
+                            value={item.count}
+                            onChange={(event) => handleAdminChange(key, 'count', Number.parseInt(event.target.value, 10) || 0)}
+                            min="0"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none"
+                          />
+                        </div>
+                      )}
 
                       {!isNone && item.img && (
                         <button
