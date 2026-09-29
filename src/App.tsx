@@ -101,6 +101,7 @@ const COMMON_GIFT_PRESETS = [
 
 const RESULT_DELAY_MS = 500;
 const RESET_DELAY_MS = 500;
+const BACKGROUND_REMOVAL_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
 const DEFAULT_GAME_SETTINGS: GameSettings = {
   totalCheckins: 0,
   giftIssueRate: 90,
@@ -204,6 +205,24 @@ function loadImage(source: Blob | string): Promise<HTMLImageElement> {
   });
 }
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  const separatorIndex = dataUrl.indexOf(',');
+  if (separatorIndex === -1) throw new Error('Ảnh tải lên không hợp lệ.');
+
+  const header = dataUrl.slice(0, separatorIndex);
+  const body = dataUrl.slice(separatorIndex + 1);
+  const mimeType = header.match(/^data:([^;,]+)/)?.[1] || 'application/octet-stream';
+
+  if (!header.includes(';base64')) {
+    return new Blob([decodeURIComponent(body)], { type: mimeType });
+  }
+
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mimeType });
+}
+
 async function composeGiftImage(foreground: Blob): Promise<string> {
   const image = await loadImage(foreground);
   const maxDimension = 900;
@@ -225,17 +244,21 @@ async function composeGiftImage(foreground: Blob): Promise<string> {
 
 async function processGiftImage(source: Blob | string, onProgress: (progress: number) => void): Promise<string> {
   const resolvedSource = typeof source === 'string'
-    ? (() => {
+    ? source.startsWith('data:')
+      ? dataUrlToBlob(source)
+      : (() => {
         const sourceUrl = new URL(source, window.location.origin);
         const isMisresolvedGiftAsset = sourceUrl.hostname === 'staticimgly.com'
           && sourceUrl.pathname.startsWith('/gifts/');
         return isMisresolvedGiftAsset
           ? new URL(sourceUrl.pathname, window.location.origin).href
           : sourceUrl.href;
-      })()
+        })()
     : source;
 
   const foreground = await removeBackground(resolvedSource, {
+    publicPath: BACKGROUND_REMOVAL_PUBLIC_PATH,
+    debug: true,
     model: 'isnet_quint8',
     device: 'cpu',
     output: { format: 'image/png' },
@@ -664,7 +687,8 @@ export default function App() {
       setNewItem(prev => ({ ...prev, img: processedImage }));
       setImageProcessStatus('success');
       showFeedback({ type: 'success', message: 'Đã tách nền ảnh quà thành công' });
-    } catch {
+    } catch (error) {
+      console.error('Lỗi tách nền ảnh mới', error);
       setImageProcessStatus('uploaded');
       showFeedback({ type: 'error', message: 'Không thể tách nền ảnh này. Ảnh gốc vẫn được giữ lại.' });
     } finally {
