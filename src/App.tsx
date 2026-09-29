@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Settings, Download, Save, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
+import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import { db, auth, signInWithGoogle, logOut } from './firebase';
 import {
@@ -756,7 +756,7 @@ export default function App() {
             <div className="bg-white rounded-2xl p-6 w-full shadow-3xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800 uppercase">Cài đặt hệ thống</h2>
-                <button onClick={toggleAdmin} className="text-gray-400 hover:text-red-600 transition cursor-pointer">
+                <button onClick={toggleAdmin} className="text-gray-400 transition hover:text-red-600 cursor-pointer md:hidden">
                   <X className="h-6 w-6" />
                 </button>
               </div>
@@ -988,13 +988,22 @@ export default function App() {
                 <button
                   onClick={() => setShowConfirmReset(true)}
                   disabled={isSaving || isResetting}
-                  className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full bg-red-100 text-red-700 py-3 rounded-lg font-bold hover:bg-red-200 transition cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
                 >
                   KHÔI PHỤC DỮ LIỆU GỐC
                 </button>
               </div>
             </div>
-            <div className="absolute -right-16 top-4 hidden flex-col gap-2 rounded-full border border-gray-100 bg-white p-2 shadow-xl md:flex">
+            <div className="absolute -right-16 top-4 hidden flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl md:flex">
+              <button
+                type="button"
+                onClick={toggleAdmin}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-red-600"
+                title="Đóng cài đặt"
+                aria-label="Đóng cài đặt"
+              >
+                <X className="h-5 w-5" />
+              </button>
               <button
                 type="button"
                 onClick={saveAdminSettings}
@@ -1013,6 +1022,17 @@ export default function App() {
                 aria-label="Xuất file nhật ký"
               >
                 <Download className="h-5 w-5" />
+              </button>
+              <div className="my-1 h-px w-8 bg-gray-200" />
+              <button
+                type="button"
+                onClick={() => setShowConfirmReset(true)}
+                disabled={isSaving || isResetting}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Khôi phục dữ liệu gốc"
+                aria-label="Khôi phục dữ liệu gốc"
+              >
+                <RotateCcw className="h-5 w-5" />
               </button>
             </div>
           </div>
