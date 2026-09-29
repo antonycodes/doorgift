@@ -69,6 +69,19 @@ const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
   },
 };
 
+const COMMON_GIFT_PRESETS = [
+  { id: 'mug', name: 'Ly sứ CPS', count: 5, img: DEFAULT_INVENTORY.mug.img, icon: '☕' },
+  { id: 'tetBag', name: 'Túi PK tết', count: 70, img: DEFAULT_INVENTORY.tetBag.img, icon: '🧧' },
+  { id: 'cottonBag', name: 'Túi bông', count: 20, img: DEFAULT_INVENTORY.cottonBag.img, icon: '🎒' },
+  { id: 'umbrella', name: 'Dù CPS', count: 15, img: DEFAULT_INVENTORY.umbrella.img, icon: '⛱️' },
+  { id: 'waterBottle', name: 'Bình nước', count: 20, img: '', icon: '🧴' },
+  { id: 'notebook', name: 'Sổ tay', count: 20, img: '', icon: '📓' },
+  { id: 'pen', name: 'Bút', count: 50, img: '', icon: '🖊️' },
+  { id: 'keychain', name: 'Móc khóa', count: 30, img: '', icon: '🔑' },
+  { id: 'raincoat', name: 'Áo mưa', count: 20, img: '', icon: '🧥' },
+  { id: 'voucher50k', name: 'Voucher 50.000đ', count: 10, img: '', icon: '🎟️' },
+];
+
 const RESULT_DELAY_MS = 500;
 const RESET_DELAY_MS = 500;
 
@@ -166,8 +179,8 @@ async function composeGiftImage(foreground: Blob): Promise<string> {
   return result;
 }
 
-async function processGiftImage(file: File, onProgress: (progress: number) => void): Promise<string> {
-  const foreground = await removeBackground(file, {
+async function processGiftImage(source: Blob | string, onProgress: (progress: number) => void): Promise<string> {
+  const foreground = await removeBackground(source, {
     model: 'isnet_quint8',
     device: 'cpu',
     output: { format: 'image/png' },
@@ -198,10 +211,12 @@ export default function App() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [imageProcessingProgress, setImageProcessingProgress] = useState(0);
   const [imageProcessStatus, setImageProcessStatus] = useState<ImageProcessStatus>('idle');
+  const [processingExistingItemKey, setProcessingExistingItemKey] = useState<string | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
 
   const [adminInventory, setAdminInventory] = useState<Record<string, InventoryItem>>({});
   const [newItem, setNewItem] = useState({ id: '', name: '', count: 0, img: '' });
+  const [selectedGiftPreset, setSelectedGiftPreset] = useState('');
 
   useEffect(() => {
     const adminEmails = new Set<string>([
@@ -372,6 +387,7 @@ export default function App() {
     if (!showAdmin) {
       setAdminInventory(JSON.parse(JSON.stringify(inventory)) as Record<string, InventoryItem>);
       setNewItem({ id: '', name: '', count: 0, img: '' });
+      setSelectedGiftPreset('');
       setImageProcessStatus('idle');
     }
     setShowAdmin(!showAdmin);
@@ -408,10 +424,29 @@ export default function App() {
         name: newItem.name,
         count: newItem.count,
         img: newItem.img,
-        icon: '🎁',
+        icon: COMMON_GIFT_PRESETS.find(preset => preset.id === selectedGiftPreset)?.icon || '🎁',
       },
     }));
     setNewItem({ id: '', name: '', count: 0, img: '' });
+    setSelectedGiftPreset('');
+    setImageProcessStatus('idle');
+  };
+
+  const handleGiftPresetChange = (presetId: string) => {
+    setSelectedGiftPreset(presetId);
+    const preset = COMMON_GIFT_PRESETS.find(item => item.id === presetId);
+    if (!preset) {
+      setNewItem({ id: '', name: '', count: 0, img: '' });
+      setImageProcessStatus('idle');
+      return;
+    }
+
+    setNewItem({
+      id: preset.id,
+      name: preset.name,
+      count: preset.count,
+      img: preset.img,
+    });
     setImageProcessStatus('idle');
   };
 
@@ -450,6 +485,26 @@ export default function App() {
     } finally {
       setIsProcessingImage(false);
       setImageProcessingProgress(0);
+    }
+  };
+
+  const handleExistingItemBackgroundRemoval = async (key: string) => {
+    const item = adminInventory[key];
+    if (!item?.img || isProcessingImage || processingExistingItemKey) return;
+
+    setProcessingExistingItemKey(key);
+    try {
+      const processedImage = await processGiftImage(item.img, () => undefined);
+      setAdminInventory(prev => ({
+        ...prev,
+        [key]: { ...prev[key], img: processedImage },
+      }));
+      showFeedback({ type: 'success', message: `Đã tách nền cho ${item.name}` });
+    } catch (error) {
+      console.error('Lỗi tách nền ảnh cũ', error);
+      showFeedback({ type: 'error', message: 'Không thể tách nền ảnh này. Vui lòng thử lại.' });
+    } finally {
+      setProcessingExistingItemKey(null);
     }
   };
 
@@ -700,6 +755,17 @@ export default function App() {
                         />
                       </div>
 
+                      {!isNone && item.img && (
+                        <button
+                          type="button"
+                          onClick={() => void handleExistingItemBackgroundRemoval(key)}
+                          disabled={isProcessingImage || Boolean(processingExistingItemKey)}
+                          className="self-end rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {processingExistingItemKey === key ? 'ĐANG TÁCH NỀN...' : 'TÁCH NỀN LẠI'}
+                        </button>
+                      )}
+
                       {!isNone && (
                         <div className="hidden">
                           <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Link Ảnh Cloudinary</label>
@@ -720,6 +786,21 @@ export default function App() {
               <div className="p-4 border-2 border-dashed border-gray-300 rounded-xl bg-white">
                 <label className="block text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider">THÊM QUÀ MỚI</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">QUÀ MẪU CÓ SẴN</label>
+                    <select
+                      value={selectedGiftPreset}
+                      onChange={(event) => handleGiftPresetChange(event.target.value)}
+                      className="w-full border border-gray-300 rounded-lg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                    >
+                      <option value="">-- Chọn quà mẫu để điền nhanh --</option>
+                      {COMMON_GIFT_PRESETS.map(preset => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.icon} {preset.name} · {preset.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1">Mã quà (viết liền không dấu)</label>
                     <input
@@ -751,9 +832,9 @@ export default function App() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">Ảnh quà</label>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-2">PREVIEW SAU KHI TÁCH NỀN</label>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                      <div className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed bg-gradient-to-b from-slate-50 to-white ${imageProcessStatus === 'success' ? 'border-green-400' : imageProcessStatus === 'error' ? 'border-red-400' : 'border-gray-300'}`}>
                         {newItem.img ? (
                           <img src={newItem.img} alt="Xem trước quà mới" className="h-full w-full object-contain" />
                         ) : (
