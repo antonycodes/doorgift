@@ -650,10 +650,10 @@ export default function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:flex-row md:gap-4' : ''}`}>
-        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-1/2' : ''}`}>
+      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:flex-row md:gap-8' : ''}`}>
+        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-[42%] md:shrink-0 md:text-left' : ''}`}>
           <div
-            className="mx-auto w-fit max-w-full select-none"
+            className={`mx-auto w-fit max-w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
             onContextMenu={(event) => event.preventDefault()}
             onDragStart={(event) => event.preventDefault()}
           >
@@ -661,12 +661,12 @@ export default function App() {
               src="/typo-lat-o-nhan-qua.png"
               alt="LẬT Ô NHẬN QUÀ"
               draggable={false}
-              className="mx-auto h-auto max-h-56 max-w-full object-contain md:max-h-72"
+              className={`mx-auto h-auto max-h-56 max-w-full object-contain md:max-h-72 ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
             />
           </div>
         </div>
 
-        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-1/2' : ''}`}>
+        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-[58%] md:max-w-lg md:shrink-0' : ''}`}>
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
             const item = inventory[type] || DEFAULT_INVENTORY.none;
@@ -756,7 +756,7 @@ export default function App() {
 
             <div className="space-y-6">
               <div className="rounded-xl border border-red-100 bg-red-50 p-4">
-                <label className="block text-sm font-bold uppercase tracking-wider text-red-700">BỐ CỤC TYPO</label>
+                <label className="block text-sm font-bold text-red-700">Bố cục</label>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -781,7 +781,6 @@ export default function App() {
                     NGANG
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-red-700/70">Thiết lập được đồng bộ cho Mac và iPad. Điện thoại luôn hiển thị dọc.</p>
               </div>
 
               {Object.keys(adminInventory).map((key) => {
