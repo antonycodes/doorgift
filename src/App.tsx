@@ -43,6 +43,7 @@ interface LogEntry {
   userEmail?: string;
   userId?: string;
   accountId?: string;
+  userPhotoURL?: string;
   regionId?: RegionId;
   createdAt?: unknown;
 }
@@ -107,6 +108,14 @@ type Feedback = {
   message: string;
 };
 
+type DashboardAccountStat = {
+  id: string;
+  label: string;
+  email?: string;
+  count: number;
+  avatarUrl?: string;
+};
+
 type ImageProcessStatus = 'idle' | 'uploaded' | 'processing' | 'success' | 'error';
 
 const regionRef = (regionId: RegionId) => doc(db, 'gameRegions', regionId);
@@ -114,6 +123,12 @@ const inventoryCollectionRef = (regionId: RegionId) => collection(db, 'gameRegio
 const inventoryItemRef = (regionId: RegionId, key: string) => doc(db, 'gameRegions', regionId, 'inventory', key);
 const logsCollectionRef = (regionId: RegionId) => collection(db, 'gameRegions', regionId, 'logs');
 const accountNumberFromId = (accountId: string | null) => accountId?.match(/(?:^|_)(\d+)$/)?.[1] || null;
+const avatarInitials = (value: string) => value
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((part) => part.charAt(0).toUpperCase())
+  .join('') || 'G';
 const regionFromAccountId = (accountId: string | null): RegionId | null => {
   if (!accountId) return null;
   const region = (Object.keys(REGION_ACCOUNTS) as RegionId[]).find((regionId) => REGION_ACCOUNTS[regionId].includes(accountId));
@@ -524,6 +539,7 @@ export default function App() {
       userEmail: user.email || 'Ẩn danh',
       userId: user.uid,
       regionId: activeRegion,
+      ...(user.photoURL ? { userPhotoURL: user.photoURL } : {}),
       ...(accountIdFromAuthEmail(user.email)
         ? { accountId: accountIdFromAuthEmail(user.email) }
         : {}),
@@ -934,11 +950,30 @@ export default function App() {
   const dashboardProgress = dashboardInitialTotal && dashboardInitialTotal > 0
     ? Math.min(100, Math.round((dashboardDistributedTotal / dashboardInitialTotal) * 100))
     : 0;
-  const dashboardAccountStats = REGION_ACCOUNTS[activeRegion].map((id) => ({
+  const operationalAccountStats: DashboardAccountStat[] = REGION_ACCOUNTS[activeRegion].map((id) => ({
     id,
+    label: id,
     count: activeDashboardLogs.filter((log) => log.accountId === id).length,
   }));
-  const dashboardUnidentifiedCount = activeDashboardLogs.filter((log) => !log.accountId).length;
+  const gmailAccountStats = activeDashboardLogs.reduce<Record<string, DashboardAccountStat>>((stats, log) => {
+    if (log.accountId || !log.userEmail || log.userEmail.endsWith('@vhws.local')) return stats;
+
+    const current = stats[log.userEmail] || {
+      id: log.userEmail,
+      label: log.userName && log.userName !== 'Người chơi' ? log.userName : log.userEmail,
+      email: log.userEmail,
+      count: 0,
+      avatarUrl: log.userPhotoURL,
+    };
+    stats[log.userEmail] = {
+      ...current,
+      count: current.count + 1,
+      avatarUrl: current.avatarUrl || log.userPhotoURL,
+    };
+    return stats;
+  }, {});
+  const dashboardAccountStats = [...operationalAccountStats, ...Object.values(gmailAccountStats)];
+  const dashboardUnidentifiedCount = activeDashboardLogs.filter((log) => !log.accountId && !log.userEmail).length;
 
   const handleAccountLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1244,7 +1279,24 @@ export default function App() {
               <div className="grid gap-3 sm:grid-cols-2">
                 {dashboardAccountStats.map((account) => (
                   <div key={account.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
-                    <span className="font-bold text-gray-700">{account.id}</span>
+                    <div className="flex min-w-0 items-center gap-3">
+                      {account.avatarUrl ? (
+                        <img
+                          src={account.avatarUrl}
+                          alt={`Avatar ${account.label}`}
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-black text-red-700">
+                          {avatarInitials(account.label)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-gray-700">{account.label}</p>
+                        {account.email && <p className="truncate text-xs text-gray-400">{account.email}</p>}
+                      </div>
+                    </div>
                     <span className="text-xl font-black text-red-700">{account.count}</span>
                   </div>
                 ))}

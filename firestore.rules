@@ -107,7 +107,7 @@ service cloud.firestore {
     }
 
     function isValidLogEntry() {
-      return hasOnlyAllowedFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'accountId', 'regionId', 'createdAt']) &&
+      return hasOnlyAllowedFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'accountId', 'userPhotoURL', 'regionId', 'createdAt']) &&
              hasRequiredFields(['timestamp', 'result', 'type', 'userName', 'userEmail', 'userId', 'createdAt']) &&
              request.resource.data.timestamp is string &&
              request.resource.data.result is string &&
@@ -116,6 +116,7 @@ service cloud.firestore {
              request.resource.data.userEmail is string &&
              request.resource.data.userId is string &&
              (!request.resource.data.keys().hasAny(['accountId']) || request.resource.data.accountId is string) &&
+             (!request.resource.data.keys().hasAny(['userPhotoURL']) || request.resource.data.userPhotoURL is string) &&
              (!request.resource.data.keys().hasAny(['regionId']) || request.resource.data.regionId in ['north', 'south']) &&
              request.resource.data.createdAt is timestamp;
     }
