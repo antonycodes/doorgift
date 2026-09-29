@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus, Eye, EyeOff } from 'lucide-react';
+import { Settings, Download, Save, RotateCcw, X, LogOut, CheckCircle2, AlertCircle, ImagePlus, Eye, EyeOff, LayoutDashboard } from 'lucide-react';
 import { removeBackground } from '@imgly/background-removal';
 import {
   auth,
@@ -49,6 +49,8 @@ interface GameSettings {
   totalCheckins: number;
   giftIssueRate: number;
 }
+
+type InitialInventorySnapshot = Record<string, number>;
 
 const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
   mug: {
@@ -114,6 +116,27 @@ const inventoryCollectionRef = () => collection(db, 'game', 'inventory', 'items'
 const inventoryItemRef = (key: string) => doc(db, 'game', 'inventory', 'items', key);
 const gameSettingsRef = () => doc(db, 'game', 'settings');
 const accountNumberFromId = (accountId: string | null) => accountId?.match(/(?:^|_)(\d+)$/)?.[1] || null;
+
+const parseInitialInventory = (value: unknown): InitialInventorySnapshot | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const parsed = Object.entries(value as Record<string, unknown>).reduce<InitialInventorySnapshot>((result, [key, count]) => {
+    const normalizedCount = Number(count);
+    if (Number.isFinite(normalizedCount) && normalizedCount >= 0) result[key] = Math.floor(normalizedCount);
+    return result;
+  }, {});
+
+  return Object.keys(parsed).length > 0 ? parsed : null;
+};
+
+const timestampToMillis = (value: unknown): number | null => {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value && typeof value === 'object' && 'toMillis' in value && typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+  return null;
+};
 
 async function saveInventoryItems(items: Record<string, InventoryItem>) {
   const current = await getDocs(inventoryCollectionRef());
@@ -238,6 +261,7 @@ export default function App() {
   const [gameActive, setGameActive] = useState(true);
 
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [currentResultType, setCurrentResultType] = useState<GiftType | null>(null);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
@@ -262,6 +286,10 @@ export default function App() {
   const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [initialInventorySnapshot, setInitialInventorySnapshot] = useState<InitialInventorySnapshot | null>(null);
+  const [dashboardLogs, setDashboardLogs] = useState<LogEntry[]>([]);
+  const [isLockingInitialInventory, setIsLockingInitialInventory] = useState(false);
+  const [initialInventoryLockedAt, setInitialInventoryLockedAt] = useState<unknown>(null);
 
   useEffect(() => {
     const adminEmails = new Set<string>([
@@ -331,10 +359,31 @@ export default function App() {
         totalCheckins: Number.isFinite(savedTotalCheckins) ? Math.max(0, Math.floor(savedTotalCheckins)) : DEFAULT_GAME_SETTINGS.totalCheckins,
         giftIssueRate: Number.isFinite(savedGiftIssueRate) ? Math.min(100, Math.max(0, savedGiftIssueRate)) : DEFAULT_GAME_SETTINGS.giftIssueRate,
       });
+      setInitialInventorySnapshot(parseInitialInventory(settings.initialInventory));
+      setInitialInventoryLockedAt(settings.initialInventoryLockedAt || null);
     });
 
     return unsubscribe;
   }, [user]);
+
+  useEffect(() => {
+    if (!showDashboard || !isAdmin) {
+      setDashboardLogs([]);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'logs'), orderBy('createdAt', 'asc')),
+      (snapshot) => {
+        const nextLogs: LogEntry[] = [];
+        snapshot.forEach((itemDoc) => nextLogs.push(itemDoc.data() as LogEntry));
+        setDashboardLogs(nextLogs);
+      },
+      (error) => console.error('Lỗi tải dashboard log', error),
+    );
+
+    return unsubscribe;
+  }, [showDashboard, isAdmin]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -657,6 +706,40 @@ export default function App() {
     }
   };
 
+  const lockInitialInventory = async () => {
+    if (!isAdmin || isLockingInitialInventory || initialInventorySnapshot) return;
+
+    const nextInitialInventory = Object.entries(inventory).reduce<InitialInventorySnapshot>((result, [key, item]) => {
+      result[key] = Math.max(0, Math.floor(item.count));
+      return result;
+    }, {});
+
+    setIsLockingInitialInventory(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const settingsSnapshot = await transaction.get(gameSettingsRef());
+        const savedInitialInventory = parseInitialInventory(settingsSnapshot.data()?.initialInventory);
+        if (savedInitialInventory) throw new Error('Số quà ban đầu đã được chốt.');
+
+        transaction.set(gameSettingsRef(), {
+          initialInventory: nextInitialInventory,
+          initialInventoryLockedAt: serverTimestamp(),
+        }, { merge: true });
+      });
+      setInitialInventorySnapshot(nextInitialInventory);
+      setInitialInventoryLockedAt(new Date());
+      showFeedback({ type: 'success', message: 'Đã chốt số quà ban đầu' });
+    } catch (error) {
+      console.error('Lỗi chốt số quà ban đầu', error);
+      showFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Không thể chốt số quà ban đầu.',
+      });
+    } finally {
+      setIsLockingInitialInventory(false);
+    }
+  };
+
   const exportLogs = async () => {
     if (!isAdmin) return;
 
@@ -711,6 +794,8 @@ export default function App() {
       await setDoc(gameSettingsRef(), {
         layoutOrientation: 'vertical',
         ...DEFAULT_GAME_SETTINGS,
+        initialInventory: null,
+        initialInventoryLockedAt: null,
       }, { merge: true });
 
       const snapshot = await getDocs(collection(db, 'logs'));
@@ -719,6 +804,8 @@ export default function App() {
 
       setInventory(DEFAULT_INVENTORY);
       setGameSettings(DEFAULT_GAME_SETTINGS);
+      setInitialInventorySnapshot(null);
+      setInitialInventoryLockedAt(null);
       setLayoutOrientation('vertical');
       setShowConfirmReset(false);
       setShowAdmin(false);
@@ -751,6 +838,26 @@ export default function App() {
   const displayOrientation: LayoutOrientation = isPhoneViewport ? 'vertical' : layoutOrientation;
   const activeAccountId = accountIdFromAuthEmail(user?.email || null) || accountId || null;
   const accountNumber = accountNumberFromId(activeAccountId);
+  const dashboardCurrentTotal = Object.values(inventory).reduce((total, item) => total + Math.max(0, Math.floor(item.count)), 0);
+  const dashboardInitialTotal = initialInventorySnapshot
+    ? Object.values(initialInventorySnapshot).reduce((total, count) => total + count, 0)
+    : null;
+  const lockTimestamp = timestampToMillis(initialInventoryLockedAt);
+  const activeDashboardLogs = lockTimestamp === null
+    ? dashboardLogs
+    : dashboardLogs.filter((log) => {
+        const logTimestamp = timestampToMillis(log.createdAt);
+        return logTimestamp !== null && logTimestamp >= lockTimestamp;
+      });
+  const dashboardDistributedTotal = activeDashboardLogs.length;
+  const dashboardProgress = dashboardInitialTotal && dashboardInitialTotal > 0
+    ? Math.min(100, Math.round((dashboardDistributedTotal / dashboardInitialTotal) * 100))
+    : 0;
+  const dashboardAccountStats = ['DOORGIFT_1', 'DOORGIFT_2'].map((id) => ({
+    id,
+    count: activeDashboardLogs.filter((log) => log.accountId === id).length,
+  }));
+  const dashboardUnidentifiedCount = activeDashboardLogs.filter((log) => !log.accountId).length;
 
   const handleAccountLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -965,6 +1072,17 @@ export default function App() {
               <Settings className="h-5 w-5" />
             </button>
           )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowDashboard(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-white"
+              title="Dashboard phát quà"
+              aria-label="Dashboard phát quà"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void logOut()}
@@ -974,6 +1092,112 @@ export default function App() {
           >
             <LogOut className="h-5 w-5" />
           </button>
+        </div>
+      )}
+
+      {showDashboard && isAdmin && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="relative max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl md:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-red-600">Theo dõi realtime</p>
+                <h2 className="mt-1 text-2xl font-black text-gray-900">Dashboard phát quà</h2>
+                <p className="mt-1 text-sm text-gray-500">Tổng lượt phát đã bao gồm cả “Chúc bạn may mắn lần sau”.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDashboard(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-red-600"
+                title="Đóng dashboard"
+                aria-label="Đóng dashboard"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {!initialInventorySnapshot && (
+              <div className="mb-6 flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-bold text-amber-800">Chưa chốt số quà ban đầu</p>
+                  <p className="mt-1 text-sm text-amber-700">Hãy kiểm tra kho rồi chốt một lần trước khi bắt đầu phát.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void lockInitialInventory()}
+                  disabled={isLockingInitialInventory}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-amber-700 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isLockingInitialInventory ? 'ĐANG CHỐT...' : 'CHỐT SỐ QUÀ BAN ĐẦU'}
+                </button>
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <p className="text-xs font-bold uppercase text-gray-500">Tổng quà ban đầu</p>
+                <p className="mt-2 text-3xl font-black text-gray-900">{dashboardInitialTotal ?? '—'}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-bold uppercase text-emerald-700">Số quà hiện tại</p>
+                <p className="mt-2 text-3xl font-black text-emerald-800">{dashboardCurrentTotal}</p>
+              </div>
+              <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+                <p className="text-xs font-bold uppercase text-red-700">Đã phát</p>
+                <p className="mt-2 text-3xl font-black text-red-800">{dashboardDistributedTotal}</p>
+              </div>
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-xs font-bold uppercase text-blue-700">Tiến độ</p>
+                <p className="mt-2 text-3xl font-black text-blue-800">{dashboardInitialTotal === null ? '—' : `${dashboardProgress}%`}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="font-black text-gray-900">Theo tài khoản</h3>
+                <span className="text-xs text-gray-400">Cập nhật realtime</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dashboardAccountStats.map((account) => (
+                  <div key={account.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+                    <span className="font-bold text-gray-700">{account.id}</span>
+                    <span className="text-xl font-black text-red-700">{account.count}</span>
+                  </div>
+                ))}
+              </div>
+              {dashboardUnidentifiedCount > 0 && (
+                <p className="mt-3 text-xs text-gray-500">Log cũ hoặc thiếu tài khoản: {dashboardUnidentifiedCount} lượt.</p>
+              )}
+            </div>
+
+            <div className="mt-6 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+              <h3 className="mb-3 font-black text-gray-900">Chi tiết theo loại quà</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[34rem] text-left text-sm">
+                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                    <tr>
+                      <th className="px-2 py-2">Loại quà</th>
+                      <th className="px-2 py-2 text-right">Ban đầu</th>
+                      <th className="px-2 py-2 text-right">Hiện tại</th>
+                      <th className="px-2 py-2 text-right">Đã phát</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(inventory).map(([key, item]) => {
+                      const issued = activeDashboardLogs.filter((log) => log.result === item.name).length;
+                      return (
+                        <tr key={key} className="border-b border-gray-50 last:border-0">
+                          <td className="px-2 py-3 font-semibold text-gray-700">{item.name}</td>
+                          <td className="px-2 py-3 text-right font-bold text-gray-600">{initialInventorySnapshot?.[key] ?? '—'}</td>
+                          <td className="px-2 py-3 text-right font-bold text-emerald-700">{item.count}</td>
+                          <td className="px-2 py-3 text-right font-bold text-red-700">{issued}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
