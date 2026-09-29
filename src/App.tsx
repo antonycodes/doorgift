@@ -145,7 +145,7 @@ function loadImage(source: Blob | string): Promise<HTMLImageElement> {
   });
 }
 
-async function composeStudioGiftImage(foreground: Blob): Promise<string> {
+async function composeGiftImage(foreground: Blob): Promise<string> {
   const image = await loadImage(foreground);
   const maxDimension = 900;
   const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
@@ -156,16 +156,6 @@ async function composeStudioGiftImage(foreground: Blob): Promise<string> {
 
   if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
 
-  const background = context.createLinearGradient(0, 0, 0, canvas.height);
-  background.addColorStop(0, '#f8fafc');
-  background.addColorStop(1, '#e5e7eb');
-  context.fillStyle = background;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  context.fillStyle = 'rgba(15, 23, 42, 0.12)';
-  context.beginPath();
-  context.ellipse(canvas.width / 2, canvas.height * 0.84, canvas.width * 0.24, canvas.height * 0.045, 0, 0, Math.PI * 2);
-  context.fill();
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
   let result = canvas.toDataURL('image/webp', 0.82);
@@ -185,7 +175,7 @@ async function processGiftImage(file: File, onProgress: (progress: number) => vo
   });
 
   onProgress(100);
-  return composeStudioGiftImage(foreground);
+  return composeGiftImage(foreground);
 }
 
 export default function App() {
@@ -436,7 +426,7 @@ export default function App() {
     try {
       const image = await processGiftImage(file, setImageProcessingProgress);
       setNewItem(prev => ({ ...prev, img: image }));
-      showFeedback({ type: 'success', message: 'Đã xóa nền và thêm nền studio' });
+      showFeedback({ type: 'success', message: 'Đã xóa nền ảnh quà thành công' });
     } catch (error) {
       try {
         const originalImage = await optimizeGiftImage(file);
@@ -665,7 +655,7 @@ export default function App() {
                       </button>
                     )}
                     <div className="mb-3 flex items-center gap-3">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gradient-to-b from-slate-50 to-white">
                         {item.img ? (
                           <img src={item.img} alt={item.name} className="h-full w-full object-contain" />
                         ) : (
@@ -845,7 +835,7 @@ export default function App() {
       )}
 
       {showResult && currentResultType && (
-        <div className="fixed inset-0 bg-white/95 flex flex-col items-center justify-center z-40 text-center p-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-gradient-to-b from-white via-slate-50 to-white p-6 text-center backdrop-blur-sm">
           <div className="mb-6 w-72 h-72 md:w-96 md:h-96 flex items-center justify-center">
             {inventory[currentResultType].img ? (
               <img src={inventory[currentResultType].img} alt="Gift" className="w-full h-full object-contain drop-shadow-2xl scale-110" />
