@@ -733,7 +733,7 @@ export default function App() {
             draggable={false}
             className={layoutOrientation === 'horizontal'
               ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
-              : 'absolute left-6 top-6 h-9 w-auto object-contain md:left-14 md:top-24 md:h-16'
+              : 'vertical-logo object-contain'
             }
           />
           <div
