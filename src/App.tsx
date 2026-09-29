@@ -76,16 +76,16 @@ const DEFAULT_INVENTORY: Record<GiftType, InventoryItem> = {
 };
 
 const COMMON_GIFT_PRESETS = [
-  { id: 'mug', name: 'Ly sứ CPS', count: 5, img: DEFAULT_INVENTORY.mug.img, icon: '☕' },
-  { id: 'tetBag', name: 'Túi PK tết', count: 70, img: DEFAULT_INVENTORY.tetBag.img, icon: '🧧' },
-  { id: 'cottonBag', name: 'Túi bông', count: 20, img: DEFAULT_INVENTORY.cottonBag.img, icon: '🎒' },
-  { id: 'umbrella', name: 'Dù CPS', count: 15, img: DEFAULT_INVENTORY.umbrella.img, icon: '⛱️' },
-  { id: 'waterBottle', name: 'Bình nước', count: 20, img: '', icon: '🧴' },
-  { id: 'notebook', name: 'Sổ tay', count: 20, img: '', icon: '📓' },
-  { id: 'pen', name: 'Bút', count: 50, img: '', icon: '🖊️' },
-  { id: 'keychain', name: 'Móc khóa', count: 30, img: '', icon: '🔑' },
-  { id: 'raincoat', name: 'Áo mưa', count: 20, img: '', icon: '🧥' },
-  { id: 'voucher50k', name: 'Voucher 50.000đ', count: 10, img: '', icon: '🎟️' },
+  { id: 'accessoryPouchCps', name: 'Túi phụ kiện CPS', count: 0, img: '/gifts/accessory-pouch-cps.jpg', icon: '🎒' },
+  { id: 'waterBottle', name: 'Bình nước CPS', count: 0, img: '/gifts/water-bottle-cps.jpg', icon: '🧴' },
+  { id: 'toteCps', name: 'Túi Tote CPS', count: 0, img: '/gifts/tote-cps.jpg', icon: '👜' },
+  { id: 'handUmbrella', name: 'Dù cầm tay', count: 0, img: '/gifts/hand-umbrella.jpg', icon: '☂️' },
+  { id: 'tetBag', name: 'Túi phụ kiện Tết', count: 70, img: '/gifts/tet-accessory-pouch.jpg', icon: '🧧' },
+  { id: 'mug', name: 'Ly sứ', count: 5, img: '/gifts/ceramic-mug.jpg', icon: '☕' },
+  { id: 'accessoryPouch', name: 'Túi phụ kiện', count: 0, img: '/gifts/accessory-pouch.jpg', icon: '🧳' },
+  { id: 'cottonBag', name: 'Túi bông', count: 20, img: '/gifts/cotton-bag.jpg', icon: '🎒' },
+  { id: 'cpsBackpack', name: 'Balo CPS', count: 0, img: '/gifts/cps-backpack.jpg', icon: '🎒' },
+  { id: 'asusBag', name: 'Balo ASUS', count: 0, img: '/gifts/asus-bag.jpg', icon: '🎒' },
 ];
 
 const RESULT_DELAY_MS = 500;
@@ -1017,7 +1017,7 @@ export default function App() {
                       className="w-full border border-gray-300 rounded-lg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 outline-none"
                     >
                       <option value="">-- Chọn quà mẫu để điền nhanh --</option>
-                      {COMMON_GIFT_PRESETS.map(preset => (
+                      {COMMON_GIFT_PRESETS.filter(preset => Boolean(preset.img)).map(preset => (
                         <option key={preset.id} value={preset.id}>
                           {preset.icon} {preset.name} · {preset.id}
                         </option>
