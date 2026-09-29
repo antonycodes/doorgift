@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+.vertical-stage {
+  width: min(42rem, max(16rem, calc((100dvh - 11.5rem) * 0.6)));
+  max-width: 100%;
+}
+
 @keyframes toast-enter {
   from {
     opacity: 0;

@@ -719,16 +719,25 @@ export default function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <main className={`flex-grow flex flex-col items-center justify-center p-6 ${layoutOrientation === 'horizontal' ? 'md:grid md:grid-cols-2 md:gap-8' : ''}`}>
-        <div className={`text-center mb-8 ${layoutOrientation === 'horizontal' ? 'md:mb-0 md:w-full md:self-center md:text-left' : ''}`}>
+      <main className={`flex-grow ${layoutOrientation === 'horizontal'
+        ? 'flex flex-col items-center justify-center p-6 md:grid md:grid-cols-2 md:gap-8'
+        : 'relative flex min-h-[100dvh] w-full flex-col items-center justify-start px-6 pb-24 pt-20'
+      }`}>
+        <div className={`text-center ${layoutOrientation === 'horizontal'
+          ? 'mb-8 md:mb-0 md:w-full md:self-center md:text-left'
+          : 'vertical-stage mb-2 w-full max-w-[42rem]'
+        }`}>
           <img
             src="/cellphones-logo.png"
             alt="CellphoneS"
             draggable={false}
-            className="mx-auto mb-4 h-10 w-auto object-contain md:h-12"
+            className={layoutOrientation === 'horizontal'
+              ? 'mx-auto mb-4 h-10 w-auto object-contain md:h-12'
+              : 'absolute left-6 top-6 h-9 w-auto object-contain md:left-14 md:top-24 md:h-16'
+            }
           />
           <div
-            className={`mx-auto w-fit max-w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : ''}`}
+            className={`mx-auto w-full select-none ${layoutOrientation === 'horizontal' ? 'md:mx-0' : 'max-w-[42rem]'}`}
             onContextMenu={(event) => event.preventDefault()}
             onDragStart={(event) => event.preventDefault()}
           >
@@ -736,12 +745,18 @@ export default function App() {
               src="/typo-lat-o-nhan-qua.png"
               alt="LẬT Ô NHẬN QUÀ"
               draggable={false}
-              className={`mx-auto h-auto max-h-56 max-w-full object-contain ${layoutOrientation === 'horizontal' ? 'md:mx-0 md:max-h-[30rem]' : 'md:max-h-72'}`}
+              className={layoutOrientation === 'horizontal'
+                ? 'mx-auto h-auto max-h-56 max-w-full object-contain md:mx-0 md:max-h-[30rem]'
+                : 'mx-auto h-auto w-full object-contain'
+              }
             />
           </div>
         </div>
 
-        <div className={`grid grid-cols-3 gap-3 w-full max-w-md aspect-square ${layoutOrientation === 'horizontal' ? 'md:w-full md:max-w-3xl md:justify-self-center' : ''}`}>
+        <div className={`grid aspect-square w-full grid-cols-3 ${layoutOrientation === 'horizontal'
+          ? 'max-w-md gap-3 md:w-full md:max-w-3xl md:justify-self-center'
+          : 'vertical-stage gap-3 md:gap-5'
+        }`}>
           {gridItems.map((type, index) => {
             const isFlipped = flippedIndex === index;
             const item = inventory[type] || DEFAULT_INVENTORY.none;
